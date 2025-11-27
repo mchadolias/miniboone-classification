@@ -29,15 +29,15 @@ clean:
 ## Lint using flake8, black, and isort (use `make format` to do formatting)
 .PHONY: lint
 lint:
-	flake8 miniboone_classification
-	isort --check --diff miniboone_classification
-	black --check miniboone_classification
+	flake8 src
+	isort --check --diff src
+	black --check src
 
 ## Format source code with black
 .PHONY: format
 format:
-	isort miniboone_classification
-	black miniboone_classification
+	isort src
+	black src
 
 
 

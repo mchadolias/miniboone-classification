@@ -1,14 +1,17 @@
 # src/data/data_handler.py
 import os
+from typing import Dict, Optional, Tuple
 import zipfile
+
+from kaggle.api.kaggle_api_extended import KaggleApi
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from kaggle.api.kaggle_api_extended import KaggleApi
-from typing import Dict, Tuple, Optional
-import numpy as np
 
 from ..config import DataConfig
+
+CUSTOM_COLUMN_NAMES = [f"col_{i}" for i in range(50)]
 
 
 class MiniBooNEDataHandler:
@@ -55,6 +58,10 @@ class MiniBooNEDataHandler:
         print("📂 Loading data...")
         self.df = pd.read_csv(self.data_file)
 
+        # Rename columns
+        self.df.columns = CUSTOM_COLUMN_NAMES
+
+        # Create signal column
         self.df["signal"] = (self.df.index < (self.config.number_of_signals)).astype(int)
 
         # Validate dataset structure
