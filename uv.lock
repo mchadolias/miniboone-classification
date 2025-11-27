@@ -1213,7 +1213,9 @@ version = "0.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "joblib" },
+    { name = "kaggle" },
     { name = "numpy" },
+    { name = "pandas" },
     { name = "pydantic-settings" },
     { name = "scikit-learn" },
     { name = "xgboost" },
@@ -1231,11 +1233,9 @@ all = [
     { name = "pandas" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "pytest-html" },
+    { name = "pytest-logging" },
     { name = "seaborn" },
-]
-data = [
-    { name = "kaggle" },
-    { name = "pandas" },
 ]
 dev = [
     { name = "black" },
@@ -1243,6 +1243,8 @@ dev = [
     { name = "isort" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "pytest-html" },
+    { name = "pytest-logging" },
 ]
 viz = [
     { name = "ipykernel" },
@@ -1264,24 +1266,28 @@ requires-dist = [
     { name = "joblib", specifier = ">=1.5.2" },
     { name = "jupyter", marker = "extra == 'all'", specifier = ">=1.0.0" },
     { name = "jupyter", marker = "extra == 'viz'", specifier = ">=1.0.0" },
+    { name = "kaggle", specifier = ">=1.7.4.5" },
     { name = "kaggle", marker = "extra == 'all'", specifier = ">=1.7.4.5" },
-    { name = "kaggle", marker = "extra == 'data'", specifier = ">=1.7.4.5" },
     { name = "matplotlib", marker = "extra == 'all'", specifier = ">=3.10.7" },
     { name = "matplotlib", marker = "extra == 'viz'", specifier = ">=3.10.7" },
     { name = "numpy", specifier = ">=2.3.4" },
+    { name = "pandas", specifier = ">=2.3.3" },
     { name = "pandas", marker = "extra == 'all'", specifier = ">=2.3.3" },
-    { name = "pandas", marker = "extra == 'data'", specifier = ">=2.3.3" },
     { name = "pydantic-settings", specifier = ">=2.12.0" },
     { name = "pytest", marker = "extra == 'all'", specifier = ">=8.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "pytest-cov", marker = "extra == 'all'", specifier = ">=4.1.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.1.0" },
+    { name = "pytest-html", marker = "extra == 'all'", specifier = ">=4.1.0" },
+    { name = "pytest-html", marker = "extra == 'dev'", specifier = ">=4.1.0" },
+    { name = "pytest-logging", marker = "extra == 'all'", specifier = ">=2015.11.4" },
+    { name = "pytest-logging", marker = "extra == 'dev'", specifier = ">=2015.11.4" },
     { name = "scikit-learn", specifier = ">=1.7.2" },
     { name = "seaborn", marker = "extra == 'all'", specifier = ">=0.13.2" },
     { name = "seaborn", marker = "extra == 'viz'", specifier = ">=0.13.2" },
     { name = "xgboost", specifier = ">=3.1.1" },
 ]
-provides-extras = ["dev", "viz", "data", "all"]
+provides-extras = ["dev", "viz", "all"]
 
 [[package]]
 name = "mistune"
@@ -1879,6 +1885,41 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/5e/f7/c933acc76f5208b3b00089573cf6a2bc26dc80a8aece8f52bb7d6b1855ca/pytest_cov-7.0.0.tar.gz", hash = "sha256:33c97eda2e049a0c5298e91f519302a1334c26ac65c1a483d6206fd458361af1", size = 54328, upload-time = "2025-09-09T10:57:02.113Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ee/49/1377b49de7d0c1ce41292161ea0f721913fa8722c19fb9c1e3aa0367eecb/pytest_cov-7.0.0-py3-none-any.whl", hash = "sha256:3b8e9558b16cc1479da72058bdecf8073661c7f57f7d3c5f22a1c23507f2d861", size = 22424, upload-time = "2025-09-09T10:57:00.695Z" },
+]
+
+[[package]]
+name = "pytest-html"
+version = "4.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jinja2" },
+    { name = "pytest" },
+    { name = "pytest-metadata" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bb/ab/4862dcb5a8a514bd87747e06b8d55483c0c9e987e1b66972336946e49b49/pytest_html-4.1.1.tar.gz", hash = "sha256:70a01e8ae5800f4a074b56a4cb1025c8f4f9b038bba5fe31e3c98eb996686f07", size = 150773, upload-time = "2023-11-07T15:44:28.975Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c8/c7/c160021cbecd956cc1a6f79e5fe155f7868b2e5b848f1320dad0b3e3122f/pytest_html-4.1.1-py3-none-any.whl", hash = "sha256:c8152cea03bd4e9bee6d525573b67bbc6622967b72b9628dda0ea3e2a0b5dd71", size = 23491, upload-time = "2023-11-07T15:44:27.149Z" },
+]
+
+[[package]]
+name = "pytest-logging"
+version = "2015.11.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/dc/1e/fb11174c9eaebcec27d36e9e994b90ffa168bc3226925900b9dbbf16c9da/pytest-logging-2015.11.4.tar.gz", hash = "sha256:cec5c85ecf18aab7b2ead5498a31b9f758680ef5a902b9054ab3f2bdbb77c896", size = 3916, upload-time = "2015-11-04T12:15:54.122Z" }
+
+[[package]]
+name = "pytest-metadata"
+version = "3.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a6/85/8c969f8bec4e559f8f2b958a15229a35495f5b4ce499f6b865eac54b878d/pytest_metadata-3.1.1.tar.gz", hash = "sha256:d2a29b0355fbc03f168aa96d41ff88b1a3b44a3b02acbe491801c98a048017c8", size = 9952, upload-time = "2024-02-12T19:38:44.887Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3e/43/7e7b2ec865caa92f67b8f0e9231a798d102724ca4c0e1f414316be1c1ef2/pytest_metadata-3.1.1-py3-none-any.whl", hash = "sha256:c8e0844db684ee1c798cfa38908d20d67d0463ecb6137c72e91f418558dd5f4b", size = 11428, upload-time = "2024-02-12T19:38:42.531Z" },
 ]
 
 [[package]]

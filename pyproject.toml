@@ -25,6 +25,8 @@ dependencies = [
     "joblib>=1.5.2",
     "xgboost>=3.1.1",
     "pydantic-settings>=2.12.0",
+    "pandas>=2.3.3",
+    "kaggle>=1.7.4.5",
 ]
 requires-python = ">=3.13"
 
@@ -35,6 +37,8 @@ dev = [
     "isort>=5.13.0",
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
+    "pytest-html>=4.1.0",
+    "pytest-logging>=2015.11.4",
 ]
 
 viz = [
@@ -44,23 +48,20 @@ viz = [
     "ipykernel>=6.0.0",
 ]
 
-data = [
-    "pandas>=2.3.3",
-    "kaggle>=1.7.4.5",
-]
-
 all = [
     "black>=24.0.0",
     "flake8>=7.0.0",
     "isort>=5.13.0",
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
+    "pytest-html>=4.1.0",
     "matplotlib>=3.10.7",
     "seaborn>=0.13.2",
     "jupyter>=1.0.0",
     "ipykernel>=6.0.0",
     "pandas>=2.3.3",
     "kaggle>=1.7.4.5",
+    "pytest-logging>=2015.11.4",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -97,9 +98,6 @@ addopts = [
     "--verbose",
     "--strict-markers",
     "--strict-config",
-    "--cov=src",
-    "--cov-report=term-missing",
-    "--cov-report=html",
 ]
 
 [project.urls]

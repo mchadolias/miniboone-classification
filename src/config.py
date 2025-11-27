@@ -14,8 +14,7 @@ class DataConfig(BaseSettings):
     number_of_signals: int = 36499
     number_of_background: int = 93565
 
-    class Config:
-        env_file = ".env"
+    model_config = {"env_file": ".env", "extra": "ignore"}
 
 
 @dataclass

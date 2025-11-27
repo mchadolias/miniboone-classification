@@ -1,0 +1,56 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: |
+          uv sync --extra dev
+
+      - name: Set up Kaggle credentials
+        run: |
+          mkdir -p ~/.config/kaggle
+          cat > ~/.config/kaggle/kaggle.json << EOF
+          {
+          "username": "${{ secrets.KAGGLE_USERNAME }}",
+          "key": "${{ secrets.KAGGLE_KEY }}"
+          }
+          EOF
+          chmod 600 ~/.config/kaggle/kaggle.json
+
+      - name: Run tests
+        run: |
+          make test-ci
+
+      - name: Run linting
+        run: |
+          make lint-ci
+
+      - name: Run tests with coverage
+        run: |
+          make test-cov-ci
+
+      - name: Upload coverage reports
+        if: ${{ !env.ACT }} # Skip in local act runs
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: test_reports/coverage/
+          retention-days: 30
