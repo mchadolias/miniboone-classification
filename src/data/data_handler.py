@@ -117,7 +117,7 @@ class KaggleDownloader(DataDownloader):
                     os.remove(os.path.join(data_dir, f))
 
             data_file = os.path.join(data_dir, "MiniBooNE_PID.csv")
-            print("✅ Download complete.")
+            print("[SUCCESS] Download complete.")
             return data_file
 
         except Exception as e:
@@ -159,7 +159,7 @@ class LocalFileDownloader(DataDownloader):
         """
         if not os.path.exists(self.file_path):
             raise FileNotFoundError(f"Local file not found: {self.file_path}")
-        print("✅ Using local file.")
+        print("[SUCCESS] Using local file.")
         return self.file_path
 
 
@@ -207,7 +207,7 @@ class DataLoader:
         if not os.path.exists(data_file):
             raise FileNotFoundError(f"Data file not found: {data_file}")
 
-        print("📂 Loading data...")
+        print("Loading data...")
         df = pd.read_csv(data_file)
 
         # Validate dataset structure
@@ -236,19 +236,19 @@ class DataLoader:
         signal_count = (df["signal"] == 1).sum()
         background_count = (df["signal"] == 0).sum()
 
-        print(f"✅ Loaded {len(df)} rows, {len(df.columns)} columns.")
-        print(f"📊 Signal events: {signal_count:,}")
-        print(f"📊 Background events: {background_count:,}")
+        print(f"[STATUS] Loaded {len(df)} rows, {len(df.columns)} columns.")
+        print(f"Signal events: {signal_count:,}")
+        print(f"Background events: {background_count:,}")
 
         # Provide warnings for configuration mismatches
         if signal_count != self.config.number_of_signals:
             print(
-                f"⚠️  Warning: Signal count mismatch. Expected {self.config.number_of_signals:,}, got {signal_count:,}"
+                f"[WARNING]  Warning: Signal count mismatch. Expected {self.config.number_of_signals:,}, got {signal_count:,}"
             )
 
         if background_count != self.config.number_of_background:
             print(
-                f"⚠️  Warning: Background count mismatch. Expected {self.config.number_of_background:,}, got {background_count:,}"
+                f"[WARNING]  Warning: Background count mismatch. Expected {self.config.number_of_background:,}, got {background_count:,}"
             )
 
 
@@ -277,16 +277,16 @@ class DataCleaner:
             print(f"There are in total: {missing_count} missing values")
             # In a real scenario, you might impute or remove here
         else:
-            print("✅ There are no missing values")
+            print("[SUCCESS] There are no missing values")
 
         # Check for duplicates
         duplicate_count = df.duplicated().sum()
         if duplicate_count != 0:
             print(f"There are in total {duplicate_count} duplicated values")
             df = df.drop_duplicates()
-            print("✅ Dropped the duplicated values")
+            print("[SUCCESS] Dropped the duplicated values")
         else:
-            print("✅ There are no duplicated values")
+            print("[SUCCESS] There are no duplicated values")
 
         return df
 
@@ -337,7 +337,7 @@ class DataPreprocessor:
             (scaled_features, target_series)
         """
 
-        print("🔄 Preprocessing data...")
+        print("Preprocessing data...")
 
         X = df.drop("signal", axis=1)
         y = df["signal"]
@@ -362,7 +362,7 @@ class DataPreprocessor:
         )
 
         # Standardize features
-        print("📏 Standardizing features...")
+        print("Standardizing features...")
         self.scaler.fit(X_train)
         X_train_scaled = self.scaler.transform(X_train)
         X_val_scaled = self.scaler.transform(X_val)
@@ -383,7 +383,7 @@ class DataPreprocessor:
         }
 
         self._print_split_stats()
-        print("✅ Preprocessing complete.")
+        print("[SUCCESS] Preprocessing complete.")
         return self.splits
 
     def _print_split_stats(self) -> None:
@@ -393,7 +393,7 @@ class DataPreprocessor:
         if not self.splits:
             return
 
-        print("📊 Data Split Statistics:")
+        print("Data Split Statistics:")
         for split_name, (X, y) in self.splits.items():
             signal_pct = (y == 1).mean() * 100
             print(f"   {split_name.capitalize()}: {len(X):,} samples ({signal_pct:.1f}% signal)")
@@ -443,7 +443,7 @@ class DataSaver:
         joblib.dump(scaler, os.path.join(output_dir, "scaler.pkl"))
         joblib.dump(feature_names, os.path.join(output_dir, "feature_names.pkl"))
 
-        print(f"💾 Processed data saved to {output_dir}/")
+        print(f"[STATUS] Processed data saved to {output_dir}/")
 
 
 class MiniBooNEDataHandler:
@@ -531,7 +531,7 @@ class MiniBooNEDataHandler:
         data_file = os.path.join(self.config.data_dir, "MiniBooNE_PID.csv")
 
         if force_download or not os.path.exists(data_file):
-            print("⬇️  Downloading dataset...")
+            print("Downloading dataset...")
             data_file = self.downloader.download(self.config.data_dir)
 
         if self.df is None:
