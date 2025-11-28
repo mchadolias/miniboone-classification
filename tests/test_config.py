@@ -1,4 +1,3 @@
-# tests/test_config.py
 import pytest
 from src.config import DataConfig
 
@@ -24,9 +23,9 @@ class TestDataLoading:
         assert config.data_dir == "/custom/path"
         assert config.test_size == 0.25
 
-    def test_sample_data_structure(self, sample_neutrino_data):
+    def test_sample_data_structure(self, sample_dataframe):
         """Test that sample data has correct structure"""
-        df = sample_neutrino_data
+        df = sample_dataframe
         assert "signal" in df.columns
         assert len(df) == 5  # Match the ACTUAL size from conftest.py
         assert df["signal"].isin([0, 1]).all()
@@ -35,9 +34,9 @@ class TestDataLoading:
         assert df["signal"].sum() > 0
         assert (df["signal"] == 0).sum() > 0
 
-    def test_extreme_values_present(self, sample_neutrino_data):
+    def test_extreme_values_present(self, sample_dataframe):
         """Test that extreme values exist for testing outlier handling"""
-        df = sample_neutrino_data
+        df = sample_dataframe
         # Test the ACTUAL columns from conftest.py
         assert "feature_1" in df.columns
         # Check that data looks reasonable

@@ -1,3 +1,4 @@
+# tests/conftest.py
 import pytest
 import pandas as pd
 import numpy as np
@@ -6,52 +7,42 @@ from src.config import DataConfig
 
 
 @pytest.fixture
-def empty_handler():
+def empty_data_handler():
     """Fresh DataHandler with no data loaded."""
     return MiniBooNEDataHandler()
 
 
 @pytest.fixture
-def dummy_miniboone_data():
-    """Raw dummy data without signal column (as it comes from CSV)."""
+def data_handler_with_loaded_data():
+    """DataHandler with sample data already loaded."""
+    handler = MiniBooNEDataHandler()
+
+    # Create sample data
     num_samples = 200
     data = {f"col_{i}": np.random.normal(0, 1, num_samples) for i in range(50)}
-    return pd.DataFrame(data)
+    handler.df = pd.DataFrame(data)
 
-
-@pytest.fixture
-def dummy_miniboone_after_download():
-    """Raw dummy data without signal column (as it comes from CSV)."""
-    num_samples = 200
-    data = {f"col_{i}": np.random.normal(0, 1, num_samples) for i in range(50)}
-    return pd.DataFrame(data)
-
-
-@pytest.fixture
-def loaded_handler(dummy_miniboone_data):
-    """DataHandler with data already loaded."""
-    handler = MiniBooNEDataHandler()
-    handler.df = dummy_miniboone_data
-    return handler
-
-
-@pytest.fixture
-def handler_with_signal_data(dummy_miniboone_data):
-    """DataHandler with signal column created (post-load state)."""
-    handler = MiniBooNEDataHandler()
-    handler.df = dummy_miniboone_data.copy()
-    # Simulate what load() does
-    handler.df.columns = [f"col_{i}" for i in range(50)]  # Rename columns
-
-    # Create proper signal/background mix
-    num_signals = int(len(handler.df) * 0.28)  # ~28% signal like real data
+    # Add signal column (28% signal like real data)
+    num_signals = int(num_samples * 0.28)
     handler.df["signal"] = (handler.df.index < num_signals).astype(int)
 
-    # Update config to match
+    # Update config
     handler.config.number_of_signals = num_signals
-    handler.config.number_of_background = len(handler.df) - num_signals
+    handler.config.number_of_background = num_samples - num_signals
 
     return handler
+
+
+@pytest.fixture
+def sample_dataframe():
+    """Generic sample DataFrame for testing."""
+    return pd.DataFrame(
+        {
+            "feature_1": [1.0, 2.0, 3.0, 4.0, 5.0],
+            "feature_2": [0.1, 0.2, 0.3, 0.4, 0.5],
+            "signal": [1, 0, 1, 0, 1],
+        }
+    )
 
 
 @pytest.fixture
