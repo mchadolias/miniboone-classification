@@ -15,9 +15,9 @@ Key Components:
 - MiniBooNEDataHandler: Main facade that orchestrates the pipeline
 """
 
-import os
-from typing import Dict, Optional, Tuple, List
 from abc import ABC, abstractmethod
+import os
+from typing import Dict, List, Optional, Tuple
 import zipfile
 
 import numpy as np

@@ -17,24 +17,36 @@ A machine learning project to distinguish electron neutrinos (signal) from muon 
 ```markdown
 miniboone-classification/
 ├── data
-│   ├── external              # Data from third party sources.
-│   └── processed             # The final, canonical data sets for modeling.
-├── notebooks                 # Jupyter notebooks. Naming convention is a number (for ordering)
+│   ├── external                    # Data from third party sources.
+│   └── processed                   # The final, canonical data sets for modeling.
+├── notebooks                       # Jupyter notebooks. Naming convention is a number (for ordering)
 │   └── 01_data_exploration.ipynb 
 ├── src/
-│   ├── config.py             # Configuration management
-│   ├── data/
-│   │   └── data_handler.py   # Data loading and preprocessing
-│   └── visualization/
-│       └── plotter.py        # Visualization utilities
-├── tests/                    # Test suite
-├── .github/workflows/        # CI/CD pipeline
-├── pyproject.toml            # Project dependencies
-├── Makefile                  # Development commands
-├── figures/                   # Figures
-├── models/                   # Trained and serialized models, model predictions, or model summaries
-├── LICENSE                   # Open-source license
-└── README.md                 # Project description
+│   ├── config.py                   # Configuration management
+│   ├── data/      
+│   │   └── data_handler.py         # Data loading and preprocessing
+│   └── visualization/      
+│       └── plotter.py              # Visualization utilities
+├── tests/      
+│    ├── output/                    # Dumping ground for quick checks        
+│    ├── reports/                   # Coverage reports in HTML
+│    ├── conftest.py                # Configuration for test
+│    ├── integration
+│    │   ├── test_error_handling.py # Integration tests for error handling
+│    │   ├── test_integration.py    # General integration tests
+│    │   └── test_performance.py    # Test performance
+│    ├── test_smokes.py             # Quick smoke tests
+│    └── unit
+│        ├── test_config.py         # Unit test for configuration
+│        ├── test_data_handler.py   # Unit test for data_handler.py
+│        └── test_plotter.py        # Unit test for plotter.py
+├── .github/workflows/              # CI/CD pipeline
+├── pyproject.toml                  # Project dependencies
+├── Makefile                        # Development commands
+├── figures/                        # Figures
+├── models/                         # Trained and serialized models,predictions, or summaries
+├── LICENSE                         # Open-source license
+└── README.md                       # Project description
 ```
 
 ## 🛠️ Installation
@@ -127,7 +139,7 @@ make open-cov
 
 ## ✅ TODO List
 
-- [ ] Add detailed tests for the visualization utilities
+- [x] Add detailed tests for the visualization utilities
 - [ ] Implement model training pipeline
 - [ ] Add XGBoost model with hyperparameter tuning
 - [ ] Create model evaluation and metrics

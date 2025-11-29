@@ -7,8 +7,8 @@ background classification tasks.
 """
 
 import os
+from typing import Any, Dict, List, Optional, Tuple
 import warnings
-from typing import Any, Dict, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,11 +17,11 @@ from scipy import stats
 import seaborn as sns
 
 # Import from your config
-from src.config import BOXPLOT_PRESETS, VIOLIN_PRESETS, BoxplotConfig, SaveConfig, ViolinPlotConfig
+from src.config import BOXPLOT_PRESETS, BoxplotConfig, SaveConfig
 
 # Handle optional dependencies
 try:
-    import scienceplots
+    import scienceplots  # noqa: F401
 
     SCIENCEPLOTS_AVAILABLE = True
 except ImportError:
@@ -115,7 +115,7 @@ def setup_scientific_plotting(style: str = "science") -> None:
     # Configure math text if not using LaTeX
     if not plt.rcParams.get("text.usetex", False):
         plt.rcParams["mathtext.fontset"] = "stix"
-        print("[STATUS] Using STIX fonts for math rendering")
+        print("[STATUS] Using STIX math font (non-LaTeX mode)")
 
 
 class NeutrinoPlotter:
@@ -528,7 +528,7 @@ class NeutrinoPlotter:
                         f"Clipped at: [{outlier_info['lower_bound']:.2f}, {outlier_info['upper_bound']:.2f}]"
                     )
 
-            stats_text = " | ".join(stats_lines)
+            # stats_text = " | ".join(stats_lines)
 
             # axes[i].text(
             #     0.5,
@@ -627,7 +627,6 @@ class NeutrinoPlotter:
 
         has_negatives = (clean_data < 0).any()
         has_positives = (clean_data > 0).any()
-        has_zeros = (clean_data == 0).any()
 
         # Case 1: Only positive values (or positive + zeros)
         if has_positives and not has_negatives:

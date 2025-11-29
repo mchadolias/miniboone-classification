@@ -3,7 +3,7 @@
 #################################################################################
 
 PROJECT_NAME = miniboone-classification
-PYTHON_VERSION = 3.13
+PYTHON_VERSION = 3.14
 PYTHON_INTERPRETER = python
 TEST_DIR = tests
 REPORT_DIR = test_reports
@@ -14,7 +14,7 @@ REPORT_DIR = test_reports
 
 .PHONY: requirements clean lint format test test-dev test-html test-cov test-full
 .PHONY: test-smoke test-unit test-integration open-report open-cov create_environment help
-.PHONY: test-cov-ci test-ci lint-ci
+.PHONY: test-cov-ci test-ci lint-ci format-ci lint-ci-nonblocking
 
 ## Install Python dependencies
 requirements:
@@ -31,69 +31,87 @@ clean:
 
 ## Lint using flake8, black, and isort (use `make format` to do formatting)
 lint:
-	flake8 src
-	isort --check --diff src
-	black --check src
+	uv run flake8 src
+	uv run isort --check --diff src
+	uv run black --check src
 
-## Format source code with black
+## Format source code with black and isort
 format:
-	isort src
-	black src
+	uv run isort src
+	uv run black src
 
-## Run tests for CI (uses uv run)
+## Format for CI (with output)
+format-ci:
+	@echo "🎨 Auto-formatting code with isort..."
+	uv run isort src
+	@echo "🎨 Auto-formatting code with black..."
+	uv run black src
+	@echo "✅ Code formatting completed"
+
+## Run tests for CI 
 test-ci:
 	uv run pytest $(TEST_DIR) -v
 
-## Run linting for CI (uses uv run)  
+## Run linting for CI - fails on style issues  
 lint-ci:
 	uv run flake8 src
 	uv run isort --check --diff src
 	uv run black --check src
 
+## Run linting for CI (non-blocking) - shows issues but doesn't fail
+lint-ci-nonblocking:
+	@echo "🔍 Running flake8 (non-blocking)..."
+	-uv run flake8 src || echo "⚠️  Flake8 found issues (non-blocking)"
+	@echo "🔍 Running isort check (non-blocking)..."
+	-uv run isort --check --diff src || echo "⚠️  Isort found issues (non-blocking)" 
+	@echo "🔍 Running black check (non-blocking)..."
+	-uv run black --check src || echo "⚠️  Black found issues (non-blocking)"
+	@echo "✅ Linting checks completed (non-blocking mode)"
+
 ## Run tests with coverage for CI
 test-cov-ci:
 	mkdir -p $(REPORT_DIR)
-	uv run pytest $(TEST_DIR) --cov=src --cov-report=term-missing --cov-report=html:$(REPORT_DIR)/coverage
+	uv run pytest $(TEST_DIR) --cov=src --cov-report=term-missing --cov-report=html:$(REPORT_DIR)/coverage --cov-report=xml:$(REPORT_DIR)/coverage.xml
 	@echo "📈 Coverage report: $(REPORT_DIR)/coverage/index.html"
 
 ## Run tests
 test:
-	python -m pytest $(TEST_DIR)
+	uv run pytest $(TEST_DIR)
 
 ## Run tests with verbose output and stop on first failure
 test-dev:
-	pytest $(TEST_DIR) -v --tb=short -x
+	uv run pytest $(TEST_DIR) -v --tb=short -x
 
 ## Run tests with HTML report (no coverage)
 test-html:
 	mkdir -p $(REPORT_DIR)
-	pytest $(TEST_DIR) --html=$(REPORT_DIR)/report.html --self-contained-html
+	uv run pytest $(TEST_DIR) --html=$(REPORT_DIR)/report.html --self-contained-html
 	@echo "📊 HTML report generated: $(REPORT_DIR)/report.html"
 
 ## Run tests with coverage report
 test-cov:
 	mkdir -p $(REPORT_DIR)
-	pytest $(TEST_DIR) --cov=src --cov-report=term-missing --cov-report=html:$(REPORT_DIR)/coverage
+	uv run pytest $(TEST_DIR) --cov=src --cov-report=term-missing --cov-report=html:$(REPORT_DIR)/coverage
 	@echo "📈 Coverage report: $(REPORT_DIR)/coverage/index.html"
 
 ## Run tests with both HTML and coverage reports
 test-full:
 	mkdir -p $(REPORT_DIR)
-	pytest $(TEST_DIR) --cov=src --cov-report=term-missing --cov-report=html:$(REPORT_DIR)/coverage --html=$(REPORT_DIR)/report.html --self-contained-html
+	uv run pytest $(TEST_DIR) --cov=src --cov-report=term-missing --cov-report=html:$(REPORT_DIR)/coverage --html=$(REPORT_DIR)/report.html --self-contained-html
 	@echo "📊 HTML report: $(REPORT_DIR)/report.html"
 	@echo "📈 Coverage report: $(REPORT_DIR)/coverage/index.html"
 
 ## Run quick smoke tests only
 test-smoke:
-	pytest $(TEST_DIR)/smoke/ -v
+	uv run pytest $(TEST_DIR)/smoke/ -v
 
 ## Run only unit tests
 test-unit:
-	pytest $(TEST_DIR)/unit/ -v
+	uv run pytest $(TEST_DIR)/unit/ -v
 
 ## Run only integration tests  
 test-integration:
-	pytest $(TEST_DIR)/integration/ -v
+	uv run pytest $(TEST_DIR)/integration/ -v
 
 ## Open the latest test report in browser (macOS)
 open-report:

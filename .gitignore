@@ -197,5 +197,5 @@ cython_debug/
 figures/plots
 
 # Test generated files (report, conv-report, figures) 
-test_reports/
-test_output/
+tests/reports/
+tests/output/

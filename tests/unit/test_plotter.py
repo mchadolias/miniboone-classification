@@ -23,7 +23,7 @@ class TestNeutrinoPlotter:
     @pytest.fixture
     def save_config(self):
         """Create a SaveConfig for testing."""
-        return SaveConfig(save_dir="test_output", formats=["png"], dpi=100)
+        return SaveConfig(save_dir="tests/output", formats=["png"], dpi=100)
 
     def test_initialization(self, plotter):
         """Test that plotter initializes correctly."""
