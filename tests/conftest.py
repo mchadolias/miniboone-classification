@@ -52,13 +52,29 @@ def small_dummy_data():
     return pd.DataFrame(data)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def sample_neutrino_data():
-    """Fixture for neutrino data tests in test_config.py"""
-    return pd.DataFrame(
+    """Sample neutrino dataset for plotting tests."""
+    np.random.seed(42)
+    n_samples = 100
+
+    data = pd.DataFrame(
         {
-            "feature_1": [1.0, 2.0, 3.0, 4.0, 5.0],
-            "feature_2": [0.1, 0.2, 0.3, 0.4, 0.5],
-            "signal": [1, 0, 1, 0, 1],
+            "feature_1": np.random.normal(0, 1, n_samples),
+            "feature_2": np.random.exponential(2, n_samples),
+            "feature_3": np.random.uniform(-5, 5, n_samples),
+            "signal": np.random.choice([0, 1], n_samples, p=[0.7, 0.3]),
         }
     )
+
+    # Add some outliers
+    data["feature_1"][:5] = np.random.normal(10, 1, 5)  # Outliers
+    data["feature_2"][:3] = np.random.exponential(10, 3)  # Outliers
+
+    return data
+
+
+@pytest.fixture
+def plotter_config():
+    """Configuration for plotter tests."""
+    return {"figsize": (8, 6), "max_features": 5, "outlier_percentile": 5.0}

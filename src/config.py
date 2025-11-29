@@ -1,20 +1,60 @@
 # src/config.py
 from dataclasses import dataclass, field
 from typing import List
-
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings
 
 
 class DataConfig(BaseSettings):
-    data_dir: str = "data"
-    dataset: str = "alexanderliapatis/miniboone"
-    test_size: float = 0.15
-    val_size: float = 0.15
-    random_state: int = 42
-    number_of_signals: int = 36499
-    number_of_background: int = 93565
+    data_dir: str = Field(default="../data/external/", description="Directory for data files")
+    dataset: str = Field(default="alexanderliapatis/miniboone", description="Kaggle dataset ID")
+    test_size: float = Field(
+        default=0.20,
+        ge=0.1,
+        le=0.3,
+        description="Test set size ratio of the overall dataset (10-30%)",
+    )
+    val_size: float = Field(
+        default=0.2,
+        ge=0.1,
+        le=0.3,
+        description="Validation set size ratio of the overall dataset (10-30%).",
+    )
+    random_state: int = Field(default=42, ge=0, description="Random seed for reproducibility")
+    number_of_signals: int = Field(
+        default=36499, ge=0, description="Number of signal events in dataset"
+    )
+    number_of_background: int = Field(
+        default=93565, ge=0, description="Number of background events in dataset"
+    )
 
-    model_config = {"env_file": ".env", "extra": "ignore"}
+    @field_validator("data_dir")
+    @classmethod
+    def validate_data_dir(cls, v: str) -> str:
+        """Ensure data directory is a valid path."""
+        if not v or not isinstance(v, str):
+            raise ValueError("data_dir must be a non-empty string")
+        return v
+
+    @model_validator(mode="after")
+    def validate_split_sizes(self) -> "DataConfig":
+        """Validate that split sizes are reasonable and leave sufficient training data."""
+        total_held_out = self.test_size + self.val_size
+        if total_held_out > 0.5:
+            raise ValueError(
+                f"Combined test_size + val_size cannot exceed 0.5. "
+                f"Got test_size={self.test_size}, val_size={self.val_size} (sum={total_held_out:.2f})"
+            )
+
+        train_size = 1 - self.test_size - self.val_size
+        if train_size < 0.5:
+            raise ValueError(
+                f"Training set too small: {train_size:.1%}. " f"Need at least 50% training data."
+            )
+
+        return self
+
+    model_config = {"env_file": ".env", "extra": "ignore", "validate_assignment": True}
 
 
 @dataclass
@@ -24,6 +64,13 @@ class SaveConfig:
     dpi: int = 300
     transparent: bool = False
     bbox_inches: str = "tight"
+
+    def __post_init__(self):
+        """Validate after initialization."""
+        if self.dpi <= 0:
+            raise ValueError(f"DPI must be positive, got {self.dpi}")
+        if self.dpi < 72:
+            raise ValueError(f"DPI should be at least 72 for good quality, got {self.dpi}")
 
 
 @dataclass
