@@ -1,0 +1,52 @@
+# ============================================
+# Logging Configuration for MiniBooNE Project
+# ============================================
+
+version: 1.0
+
+defaults:
+  console_level: INFO
+  file_level: DEBUG
+  json_logging: true
+  enable_color: true
+  log_dir: logs
+
+format:
+  ascii: "| {asctime} | {levelname:<8} | {name:<28} | {message}"
+  color: "| {time} | {level:<8} | {name:<25} | {message}"
+
+handlers:
+  console:
+    type: stream
+    color: ${defaults.enable_color}
+    level: ${defaults.console_level}
+
+  file:
+    type: file
+    path: ${defaults.log_dir}/main.log
+    level: ${defaults.file_level}
+
+  json:
+    type: json
+    path: ${defaults.log_dir}/main.jsonl
+    level: ${defaults.file_level}
+    enabled: ${defaults.json_logging}
+
+loggers:
+  experiment:
+    propagate: false
+    handlers: [console, file, json]
+
+  src.data:
+    propagate: false
+    handlers: [console, file]
+    level: DEBUG
+
+  src.plotter:
+    propagate: false
+    handlers: [console, file]
+    level: INFO
+
+root:
+  handlers: [console]
+  level: WARNING
