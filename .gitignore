@@ -199,3 +199,6 @@ figures/plots
 # Test generated files (report, conv-report, figures) 
 tests/reports/
 tests/output/
+
+# Temporary files
+tmp/

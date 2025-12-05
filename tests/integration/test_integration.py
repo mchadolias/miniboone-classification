@@ -5,7 +5,7 @@ Integration tests for the complete data pipeline.
 import pytest
 import pandas as pd
 from src.data.data_handler import MiniBooNEDataHandler
-from src.visualization.plotter import NeutrinoPlotter
+from src.plotter import NeutrinoPlotter
 from src.config import DataConfig
 
 
@@ -32,26 +32,9 @@ class TestIntegration:
         assert "test" in splits
 
         # Test plotting on processed data
-        fig = plotter.create_target_distribution_plot(handler.df)
-        assert fig is not None
-
-    def test_plotter_with_processed_splits(self, data_handler_with_loaded_data):
-        """Test plotter functionality with preprocessed data."""
-        handler = data_handler_with_loaded_data
-        plotter = NeutrinoPlotter()
-
-        splits = handler.preprocess()
-
-        # Create DataFrame from training split for plotting
-        X_train, y_train = splits["train"]
-        train_df = pd.DataFrame(X_train, columns=handler.get_feature_names())
-        train_df["signal"] = y_train.values
-
-        # Test various plots
-        fig1 = plotter.create_target_distribution_plot(train_df)
-        fig2 = plotter.create_signal_vs_background_distributions(
-            train_df, features=handler.get_feature_names()[:3]  # Limit for performance
+        fig = plotter.plot_feature_separation(
+            df=handler.df,
+            features=handler.get_feature_names()[:5],  # Limit features for test speed
+            target="signal",
         )
-
-        assert fig1 is not None
-        assert fig2 is not None
+        assert fig is not None

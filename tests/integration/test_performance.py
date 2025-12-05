@@ -6,7 +6,7 @@ import pytest
 import pandas as pd
 import numpy as np
 import time
-from src.visualization.plotter import NeutrinoPlotter
+from src.plotter import NeutrinoPlotter
 
 
 class TestPerformance:
@@ -26,8 +26,12 @@ class TestPerformance:
 
         # Time the plotting
         start_time = time.time()
-        fig = plotter.create_horizontal_boxplot_with_density(
-            large_data, max_features=10  # Limit for performance
+        fig = plotter.plot_feature_separation(
+            df=large_data,
+            features=[f"feature_{i}" for i in range(20)],
+            target="signal",
+            annotate_stats=True,
+            show_mean_median=True,
         )
         end_time = time.time()
 
@@ -53,7 +57,11 @@ class TestPerformance:
 
         # Create multiple plots
         for i in range(5):
-            fig = plotter.create_signal_vs_background_distributions(
-                data, features=["feature_1", "feature_2"]
+            fig = plotter.plot_feature_separation(
+                df=data,
+                features=["feature_1", "feature_2"],
+                target="signal",
+                annotate_stats=True,
+                show_mean_median=True,
             )
             assert fig is not None
