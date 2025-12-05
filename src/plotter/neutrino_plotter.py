@@ -8,7 +8,7 @@ from src.plotter import ScientificPlotter
 from src.config import SaveConfig
 from src.utils.logger import get_module_logger
 from src.stats.statistical_analysis import (
-    compute_feature_separation,
+    compute_bootstrap_error,
     compute_effect_size,
     compute_auc_score,
     compute_mannwhitney_pvalue,

@@ -1,8 +1,8 @@
 def test_import_core_modules():
     """Smoke test: Can we import all core modules without errors?"""
     # This should not raise any ImportError
-    from src.config import DataConfig, SaveConfig, ViolinPlotConfig
-    from src.visualization.plotter import NeutrinoPlotter
+    from src.config.config import DataConfig, SaveConfig
+    from src.plotter import NeutrinoPlotter
     from src.data.data_handler import MiniBooNEDataHandler
 
     # If we get here, imports work ✅
@@ -63,7 +63,7 @@ def test_full_import_chain():
     """Smoke test: Can we import the entire chain without errors?"""
     # This tests the most critical import path
     from src.config import DataConfig, SaveConfig
-    from src.visualization.plotter import NeutrinoPlotter
+    from src.plotter import NeutrinoPlotter
     from src.data.data_handler import MiniBooNEDataHandler
 
     # Create instances

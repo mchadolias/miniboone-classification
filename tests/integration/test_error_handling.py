@@ -6,7 +6,7 @@ import pytest
 import pandas as pd
 import numpy as np
 from src.data.data_handler import MiniBooNEDataHandler
-from src.visualization.plotter import NeutrinoPlotter
+from src.plotter import NeutrinoPlotter
 
 
 class TestErrorHandling:

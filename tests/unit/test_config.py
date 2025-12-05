@@ -1,10 +1,6 @@
 import pytest
-import importlib
-import src.config
 import numpy as np
-
-# Force reload the module
-importlib.reload(src.config)
+from pathlib import Path
 
 # Now import from the reloaded module
 from src.config import DataConfig, SaveConfig
@@ -171,16 +167,17 @@ class TestSaveConfig:
     def test_save_config_defaults(self):
         """Test SaveConfig default values."""
         config = SaveConfig()
-        assert config.save_dir == "./figures"
+        assert config.save_dir == Path("output/")
         assert config.formats == ["png", "pdf"]
         assert config.dpi == 300
+        assert config.transparent is False
 
     def test_save_config_custom(self):
         """Test custom SaveConfig."""
         config = SaveConfig(
-            save_dir="/custom/figures", formats=["svg", "png"], dpi=150, transparent=True
+            save_dir=Path("/custom/figures"), formats=["svg", "png"], dpi=150, transparent=True
         )
-        assert config.save_dir == "/custom/figures"
+        assert config.save_dir == Path("/custom/figures")
         assert config.formats == ["svg", "png"]
         assert config.dpi == 150
         assert config.transparent is True

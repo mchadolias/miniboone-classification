@@ -3,7 +3,6 @@ import pytest
 import pandas as pd
 import numpy as np
 from src.data.data_handler import MiniBooNEDataHandler
-from src.config import DataConfig
 
 
 @pytest.fixture
@@ -72,6 +71,59 @@ def sample_neutrino_data():
     data["feature_2"][:3] = np.random.exponential(10, 3)  # Outliers
 
     return data
+
+
+@pytest.fixture
+def synthetic_miniboone_data():
+    """Create a synthetic MiniBooNE-like dataset for testing."""
+    n_samples = 200
+    n_features = 8
+
+    # Create synthetic data with similar characteristics to MiniBooNE
+    np.random.seed(42)  # For reproducible tests
+
+    # Feature 1-2: Normally distributed (like some physical measurements)
+    feature_1 = np.random.normal(0, 1, n_samples)
+    feature_2 = np.random.normal(5, 2, n_samples)
+
+    # Feature 3-4: Highly skewed (common in particle physics)
+    feature_3 = np.random.exponential(2, n_samples)
+    feature_4 = np.random.gamma(2, 2, n_samples)
+
+    # Feature 5: Zero-inflated (common in detector readings)
+    feature_5 = np.random.choice([0, 1], size=n_samples, p=[0.7, 0.3])
+    feature_5 = feature_5 * np.random.exponential(1, n_samples)
+
+    # Feature 6-7: Correlated features
+    feature_6 = np.random.normal(0, 1, n_samples)
+    feature_7 = feature_6 + np.random.normal(0, 0.1, n_samples)
+
+    # Feature 8: Mixed distribution
+    feature_8 = np.concatenate(
+        [np.random.normal(-2, 1, n_samples // 2), np.random.normal(2, 1, n_samples // 2)]
+    )
+
+    # Combine features
+    features = np.column_stack(
+        [feature_1, feature_2, feature_3, feature_4, feature_5, feature_6, feature_7, feature_8]
+    )
+
+    # Create target with ~30% signal (mimicking MiniBooNE ratio)
+    signal_ratio = 0.3
+    n_signal = int(n_samples * signal_ratio)
+    signal = np.concatenate([np.ones(n_signal), np.zeros(n_samples - n_signal)])
+    np.random.shuffle(signal)
+
+    # Create DataFrame with meaningful column names
+    feature_names = [f"feature_{i+1}" for i in range(n_features)]
+    df = pd.DataFrame(features, columns=feature_names)
+    df["signal"] = signal.astype(int)
+
+    # Add a few missing values for testing
+    df.iloc[5, 2] = np.nan  # One missing value
+    df.iloc[10, 4] = np.nan  # Another missing value
+
+    return df
 
 
 @pytest.fixture

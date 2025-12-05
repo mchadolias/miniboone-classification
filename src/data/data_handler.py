@@ -1,4 +1,3 @@
-# src/data/data_handler.py
 """
 Data handling module for MiniBooNE particle classification dataset.
 
@@ -24,8 +23,9 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-
-from ..config import DataConfig
+from sklearn.pipeline import Pipeline
+from src.data.data_cleaner import DataCleaner
+from src.config.config import DataConfig
 
 # Constants
 CUSTOM_COLUMN_NAMES = [f"col_{i}" for i in range(50)]
@@ -250,45 +250,6 @@ class DataLoader:
             print(
                 f"[WARNING]  Warning: Background count mismatch. Expected {self.config.number_of_background:,}, got {background_count:,}"
             )
-
-
-class DataCleaner:
-    """
-    Handles data cleaning operations.
-
-    Performs basic data quality checks including missing value detection
-    and duplicate removal. The MiniBooNE dataset is typically clean, but
-    these checks provide robustness for data quality issues.
-    """
-
-    def clean(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Clean dataset by handling missing values and duplicates.
-
-        Args:
-            df: DataFrame to clean
-
-        Returns:
-            pd.DataFrame: Cleaned DataFrame
-        """
-        # Check for missing values
-        missing_count = df.isnull().sum().sum()
-        if missing_count != 0:
-            print(f"There are in total: {missing_count} missing values")
-            # In a real scenario, you might impute or remove here
-        else:
-            print("[SUCCESS] There are no missing values")
-
-        # Check for duplicates
-        duplicate_count = df.duplicated().sum()
-        if duplicate_count != 0:
-            print(f"There are in total {duplicate_count} duplicated values")
-            df = df.drop_duplicates()
-            print("[SUCCESS] Dropped the duplicated values")
-        else:
-            print("[SUCCESS] There are no duplicated values")
-
-        return df
 
 
 class DataPreprocessor:
@@ -564,21 +525,14 @@ class MiniBooNEDataHandler:
         self.df = self.loader.load(data_file)
         return self.df
 
-    def clean_data(self) -> pd.DataFrame:
+    def clean_data(self):
         """
         Clean the loaded data for quality issues.
-
-        Returns:
-            pd.DataFrame: Cleaned dataset
-
-        Raises:
-            ValueError: If no data is loaded
         """
         if self.df is None:
             raise ValueError("Data not loaded. Call get_data() or load() first.")
 
         self.df = self.cleaner.clean(self.df)
-        return self.df
 
     def preprocess(self) -> Dict[str, Tuple[np.ndarray, pd.Series]]:
         """
@@ -586,9 +540,6 @@ class MiniBooNEDataHandler:
 
         Returns:
             Dictionary with processed splits ready for model training
-
-        Raises:
-            ValueError: If no data is loaded
         """
         if self.df is None:
             raise ValueError("Data not loaded. Call get_data() or load() first.")
@@ -602,9 +553,6 @@ class MiniBooNEDataHandler:
 
         Args:
             output_dir: Directory to save processed data
-
-        Raises:
-            ValueError: If no processed data is available
         """
         if not self.splits:
             raise ValueError("No processed data available. Call preprocess() first.")
@@ -622,9 +570,6 @@ class MiniBooNEDataHandler:
 
         Returns:
             List of feature column names
-
-        Raises:
-            ValueError: If no data is loaded
         """
         if self.df is None:
             raise ValueError("Data not loaded. Call get_data() or load() first.")
@@ -638,8 +583,6 @@ class MiniBooNEDataHandler:
             Dictionary with dataset statistics including sample counts,
             signal/background distribution, and feature information.
 
-        Raises:
-            ValueError: If no data is loaded
         """
         if self.df is None:
             raise ValueError("Data not loaded. Call get_data() or load() first.")
