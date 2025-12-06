@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
 import os
 import zipfile
-
-from kaggle.api.kaggle_api_extended import KaggleApi
 import pandas as pd
 
 from src.config.config import DataConfig
@@ -60,9 +58,11 @@ class KaggleDownloader(DataDownloader):
         dataset : str
             Kaggle dataset identifier in 'username/dataset-name' format,
             e.g. 'alexanderliapatis/miniboone'.
+        api : KaggleApi
+            Instance of the Kaggle API client.
         """
         self.dataset = dataset
-        self.api = KaggleApi()
+        self.api = {}
 
     def download(self, data_dir: str) -> str:
         """
@@ -86,7 +86,10 @@ class KaggleDownloader(DataDownloader):
         """
         try:
             logger.info("Authenticating with Kaggle API...")
+            from kaggle.api.kaggle_api_extended import KaggleApi
+
             try:
+                self.api = KaggleApi()
                 self.api.authenticate()
             except Exception as auth_exc:
                 logger.warning(
