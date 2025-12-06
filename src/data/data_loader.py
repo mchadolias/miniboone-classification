@@ -2,11 +2,11 @@ from abc import ABC, abstractmethod
 import os
 import zipfile
 
+from kaggle.api.kaggle_api_extended import KaggleApi
 import pandas as pd
 
 from src.config.config import DataConfig
 from src.utils.logger import get_global_logger
-from kaggle.api.kaggle_api_extended import KaggleApi
 
 logger = get_global_logger(__name__)
 
