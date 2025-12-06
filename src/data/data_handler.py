@@ -1,598 +1,540 @@
 """
-Data handling module for MiniBooNE particle classification dataset.
+MiniBooNEDataHandler
+====================
 
-This module provides a clean architecture implementation for handling the complete
-data pipeline from download to preprocessing. It uses the Strategy Pattern for
-different data sources and the Facade Pattern to provide a simple interface.
+Central orchestration layer for the MiniBooNE dataset lifecycle.
 
-Key Components:
-- DataDownloader: Abstract interface for data sources
-- DataLoader: Handles data loading and validation
-- DataCleaner: Handles data quality checks
-- DataPreprocessor: Handles feature scaling and splitting
-- DataSaver: Handles saving processed data
-- MiniBooNEDataHandler: Main facade that orchestrates the pipeline
+This class integrates and manages all core data operations:
+downloading, loading, cleaning, and preprocessing. It ensures that each
+step in the data pipeline is tracked, reproducible, and modular.
+
+Pipeline Overview
+-----------------
+
+    :DataLoader:  →  :DataCleaner: → :DataProcessor:
+
+Steps:
+    1. Ensures dataset availability and loads dataset into pandas DataFrame
+    2. Removes invalid entries, NaNs (-999), and duplicates
+    3. Scales features, splits into train/test sets, and readies for modeling
+
+
+Responsibilities
+----------------
+Implements the Facade Pattern to unify:
+- Data download (via DataDownloader)
+- Data loading (via DataLoader)
+- Cleaning (via DataCleaner)
+- Preprocessing (via DataProcessor)
+
+Also provides convenience utilities for summarizing and exporting
+processed data, and tracks scientific data lineage for reproducibility.
+
+Author: M. Chadolias
+Project: MiniBooNE Neutrino Classification
 """
 
-from abc import ABC, abstractmethod
+from __future__ import annotations
+
+import json
+import hashlib
 import os
-from typing import Dict, List, Optional, Tuple
-import zipfile
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Mapping, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
-from src.data.data_cleaner import DataCleaner
+
 from src.config.config import DataConfig
-
-# Constants
-CUSTOM_COLUMN_NAMES = [f"col_{i}" for i in range(50)]
-
-
-class DataDownloader(ABC):
-    """
-    Abstract base class for data downloaders.
-
-    This defines the contract that all data download strategies must implement,
-    allowing flexible data sources (Kaggle, local files, URLs) while maintaining
-    a consistent interface for the data pipeline.
-
-    Methods:
-        download: Download data and return path to downloaded file
-    """
-
-    @abstractmethod
-    def download(self, data_dir: str) -> str:
-        """
-        Download data from the implemented source.
-
-        Args:
-            data_dir: Directory where data should be downloaded
-
-        Returns:
-            str: Path to the downloaded data file
-
-        Raises:
-            RuntimeError: If download fails
-            FileNotFoundError: If local file doesn't exist
-        """
-        pass
-
-
-class KaggleDownloader(DataDownloader):
-    """
-    Downloader implementation for Kaggle datasets.
-
-    Handles authentication with Kaggle API and downloading of datasets
-    from the Kaggle platform. This implementation is specific to the
-    MiniBooNE dataset structure.
-
-    Attributes:
-        dataset (str): Kaggle dataset identifier in 'username/dataset-name' format
-    """
-
-    def __init__(self, dataset: str):
-        """
-        Initialize Kaggle downloader with dataset identifier.
-
-        Args:
-            dataset: Kaggle dataset identifier (e.g., 'alexanderliapatis/miniboone')
-        """
-        self.dataset = dataset
-
-    def download(self, data_dir: str) -> str:
-        """
-        Download dataset from Kaggle and perform post-processing.
-
-        This method:
-        1. Authenticates with Kaggle API
-        2. Downloads and unzips the dataset
-        3. Cleans up temporary zip files
-        4. Returns path to the main data file
-
-        Args:
-            data_dir: Directory where data should be downloaded
-
-        Returns:
-            str: Path to the downloaded MiniBooNE_PID.csv file
-
-        Raises:
-            RuntimeError: If Kaggle API authentication or download fails
-            ImportError: If kaggle package is not installed
-        """
-        try:
-            from kaggle.api.kaggle_api_extended import KaggleApi
-
-            api = KaggleApi()
-            api.authenticate()
-            api.dataset_download_files(self.dataset, path=data_dir, unzip=True)
-
-            # Clean up zip files after extraction
-            for f in os.listdir(data_dir):
-                if f.endswith(".zip"):
-                    with zipfile.ZipFile(os.path.join(data_dir, f), "r") as zf:
-                        zf.extractall(data_dir)
-                    os.remove(os.path.join(data_dir, f))
-
-            data_file = os.path.join(data_dir, "MiniBooNE_PID.csv")
-            print("[SUCCESS] Download complete.")
-            return data_file
-
-        except Exception as e:
-            raise RuntimeError(f"Failed to download dataset from Kaggle: {e}")
-
-
-class LocalFileDownloader(DataDownloader):
-    """
-    Downloader for local files (primarily for testing).
-
-    This implementation simply validates that a local file exists and
-    returns its path, avoiding network calls during testing.
-
-    Attributes:
-        file_path (str): Path to local data file
-    """
-
-    def __init__(self, file_path: str):
-        """
-        Initialize local file downloader.
-
-        Args:
-            file_path: Path to existing local data file
-        """
-        self.file_path = file_path
-
-    def download(self, data_dir: str) -> str:
-        """
-        Validate local file exists and return its path.
-
-        Args:
-            data_dir: Unused for local files (maintained for interface consistency)
-
-        Returns:
-            str: Path to the local data file
-
-        Raises:
-            FileNotFoundError: If local file doesn't exist
-        """
-        if not os.path.exists(self.file_path):
-            raise FileNotFoundError(f"Local file not found: {self.file_path}")
-        print("[SUCCESS] Using local file.")
-        return self.file_path
-
-
-class DataLoader:
-    """
-    Handles data loading and basic validation.
-
-    Responsible for reading data files, applying column names, creating
-    the target signal column, and validating dataset structure.
-
-    Attributes:
-        config (DataConfig): Configuration object with dataset parameters
-    """
-
-    def __init__(self, config: DataConfig):
-        """
-        Initialize data loader with configuration.
-
-        Args:
-            config: Data configuration containing signal counts and other parameters
-        """
-        self.config = config
-
-    def load(self, data_file: str) -> pd.DataFrame:
-        """
-        Load and validate dataset from file.
-
-        This method:
-        1. Reads CSV file into DataFrame
-        2. Validates column count matches expected features
-        3. Applies standardized column names
-        4. Creates binary signal column based on config
-        5. Performs dataset validation
-
-        Args:
-            data_file: Path to data file
-
-        Returns:
-            pd.DataFrame: Loaded and validated dataset
-
-        Raises:
-            FileNotFoundError: If data file doesn't exist
-            ValueError: If dataset structure doesn't match expectations
-        """
-        if not os.path.exists(data_file):
-            raise FileNotFoundError(f"Data file not found: {data_file}")
-
-        print("Loading data...")
-        df = pd.read_csv(data_file)
-
-        # Validate dataset structure
-        if len(df.columns) != 50:
-            raise ValueError(f"Expected 50 columns, got {len(df.columns)}")
-
-        # Apply standardized column names
-        df.columns = CUSTOM_COLUMN_NAMES
-
-        # Create binary signal column (first N rows are signal events)
-        df["signal"] = (df.index < self.config.number_of_signals).astype(int)
-
-        self._validate_loaded_data(df)
-        return df
-
-    def _validate_loaded_data(self, df: pd.DataFrame) -> None:
-        """
-        Validate loaded dataset against expected configuration.
-
-        Compares actual signal/background counts with configured expectations
-        and provides warnings for mismatches while allowing processing to continue.
-
-        Args:
-            df: Loaded DataFrame to validate
-        """
-        signal_count = (df["signal"] == 1).sum()
-        background_count = (df["signal"] == 0).sum()
-
-        print(f"[STATUS] Loaded {len(df)} rows, {len(df.columns)} columns.")
-        print(f"Signal events: {signal_count:,}")
-        print(f"Background events: {background_count:,}")
-
-        # Provide warnings for configuration mismatches
-        if signal_count != self.config.number_of_signals:
-            print(
-                f"[WARNING]  Warning: Signal count mismatch. Expected {self.config.number_of_signals:,}, got {signal_count:,}"
-            )
-
-        if background_count != self.config.number_of_background:
-            print(
-                f"[WARNING]  Warning: Background count mismatch. Expected {self.config.number_of_background:,}, got {background_count:,}"
-            )
-
-
-class DataPreprocessor:
-    """
-    Handles data preprocessing and splitting.
-
-    Responsible for feature scaling and dataset splitting into train/validation/test
-    sets. Uses stratified splitting to maintain class distribution and standard
-    scaling for feature normalization.
-
-    Attributes:
-        config (DataConfig): Configuration with split sizes and random state
-        scaler (StandardScaler): Fitted scaler for feature standardization
-        splits (Dict): Processed data splits
-    """
-
-    def __init__(self, config: DataConfig):
-        """
-        Initialize preprocessor with configuration.
-
-        Args:
-            config: Data configuration containing test/val sizes and random state
-        """
-        self.config = config
-        self.scaler = StandardScaler()
-        self.splits: Dict[str, Tuple[np.ndarray, pd.Series]] = {}
-
-    def preprocess(self, df: pd.DataFrame) -> Dict[str, Tuple[np.ndarray, pd.Series]]:
-        """
-        Preprocess and split data into train/validation/test sets.
-
-        This method:
-        1. Splits data into train+val and test sets (stratified)
-        2. Further splits train+val into train and validation
-        3. Applies standard scaling to features
-        4. Returns processed splits
-
-        Important: Uses stratified splitting to maintain signal/background
-        ratio across all splits.
-
-        Args:
-            df: DataFrame to preprocess
-
-        Returns:
-            Dictionary with 'train', 'val', 'test' splits as tuples of
-            (scaled_features, target_series)
-        """
-
-        print("Preprocessing data...")
-
-        X = df.drop("signal", axis=1)
-        y = df["signal"]
-
-        # Split into train+val and test
-        X_trainval, X_test, y_trainval, y_test = train_test_split(
-            X,
-            y,
-            test_size=self.config.test_size,
-            random_state=self.config.random_state,
-            stratify=y,
-        )
-
-        # Split train+val into train and val
-        val_rel_size = self.config.val_size / (1 - self.config.test_size)
-        X_train, X_val, y_train, y_val = train_test_split(
-            X_trainval,
-            y_trainval,
-            test_size=val_rel_size,
-            random_state=self.config.random_state,
-            stratify=y_trainval,
-        )
-
-        # Standardize features
-        print("Standardizing features...")
-        self.scaler.fit(X_train)
-        X_train_scaled = self.scaler.transform(X_train)
-        X_val_scaled = self.scaler.transform(X_val)
-        X_test_scaled = self.scaler.transform(X_test)
-
-        # Store processed splits (only scaled data)
-        self.splits = {
-            "train": (X_train_scaled, y_train.reset_index(drop=True)),
-            "val": (X_val_scaled, y_val.reset_index(drop=True)),
-            "test": (X_test_scaled, y_test.reset_index(drop=True)),
-        }
-
-        # Store raw splits separately if needed
-        self.raw_splits = {
-            "train": (X_train, y_train),
-            "val": (X_val, y_val),
-            "test": (X_test, y_test),
-        }
-
-        self._print_split_stats()
-        print("[SUCCESS] Preprocessing complete.")
-        return self.splits
-
-    def _print_split_stats(self) -> None:
-        """
-        Print statistics about the processed data splits.
-        """
-        if not self.splits:
-            return
-
-        print("Data Split Statistics:")
-        for split_name, (X, y) in self.splits.items():
-            signal_pct = (y == 1).mean() * 100
-            print(f"   {split_name.capitalize()}: {len(X):,} samples ({signal_pct:.1f}% signal)")
-
-
-class DataSaver:
-    """
-    Handles saving processed data to disk.
-
-    Saves processed splits, fitted scaler, and feature names for
-    reproducible model training and inference.
-    """
-
-    def save_processed_data(
-        self,
-        splits: Dict[str, Tuple[np.ndarray, pd.Series]],
-        scaler: StandardScaler,
-        feature_names: List[str],
-        output_dir: str = "processed_data",
-    ) -> None:
-        """
-        Save processed splits and artifacts to disk.
-
-        Args:
-            splits: Processed data splits from preprocessor
-            scaler: Fitted StandardScaler for feature transformation
-            feature_names: List of feature column names
-            output_dir: Directory to save processed data
-
-        Raises:
-            ValueError: If no processed data is available
-        """
-        if not splits:
-            raise ValueError("No processed data available.")
-
-        os.makedirs(output_dir, exist_ok=True)
-
-        # Save processed splits as numpy arrays
-        for split_name, (X, y) in splits.items():
-            if split_name != "raw":  # Don't save raw data
-                np.save(os.path.join(output_dir, f"X_{split_name}.npy"), X)
-                np.save(os.path.join(output_dir, f"y_{split_name}.npy"), y.values)
-
-        # Save preprocessing artifacts
-        import joblib
-
-        joblib.dump(scaler, os.path.join(output_dir, "scaler.pkl"))
-        joblib.dump(feature_names, os.path.join(output_dir, "feature_names.pkl"))
-
-        print(f"[STATUS] Processed data saved to {output_dir}/")
+from src.data.data_cleaner import DataCleaner
+from src.data.data_processor import DataProcessor
+from src.data.data_loader import DataLoader, DataDownloader, KaggleDownloader
+from src.utils.logger import get_global_logger
+
+logger = get_global_logger(__name__)
 
 
 class MiniBooNEDataHandler:
     """
     Main facade class for MiniBooNE dataset operations.
 
-    Orchestrates the complete data pipeline from download to preprocessing
-    using the Strategy Pattern for different components. Provides a simple
-    interface while allowing flexible implementation swapping for testing
-    and different environments.
+    Orchestrates the complete data pipeline from download to preprocessing,
+    using strategy classes for each subsystem:
 
-    The class follows the Facade Pattern to hide complex subsystem interactions
-    and provide a clean, high-level API for data operations.
+        • DataDownloader  → obtains the raw dataset (Kaggle/local/etc.)
+        • DataLoader      → reads and validates the raw file into a DataFrame
+        • DataCleaner     → handles duplicates, NaNs, and -999 placeholders
+        • DataProcessor   → scales features, splits data, and exports pipelines
 
-    Example:
-        >>> handler = MiniBooNEDataHandler()
-        >>> df = handler.get_data()           # Download and load data
-        >>> handler.clean_data()              # Clean the dataset
-        >>> splits = handler.preprocess()     # Preprocess and split
-        >>> handler.save_processed_data()     # Save processed data
+    This class hides the internal complexity and offers a small, coherent API
+    for experiments, notebooks, and training scripts.
 
-    Attributes:
-        config (DataConfig): Configuration object for data parameters
-        downloader (DataDownloader): Strategy for data downloading
-        loader (DataLoader): Handles data loading and validation
-        cleaner (DataCleaner): Handles data cleaning operations
-        preprocessor (DataPreprocessor): Handles preprocessing and splitting
-        saver (DataSaver): Handles saving processed data
-        df (pd.DataFrame): Loaded dataset (None until data is loaded)
-        splits (Dict): Preprocessed data splits (empty until preprocessing)
+    Parameters
+    ----------
+    config : DataConfig
+        Configuration object controlling data paths, target column name,
+        expected counts, cache directories, etc.
+    downloader : Optional[DataDownloader], default=None
+        Optional custom downloader strategy. If None, a KaggleDownloader
+        will be constructed from config (if possible).
+    loader : Optional[DataLoader], default=None
+        Optional custom loader. If None, a default DataLoader(config) is used.
+    cleaner : Optional[DataCleaner], default=None
+        Optional custom cleaner. If None, a default DataCleaner(config.target_col) is used.
+    processor : Optional[DataProcessor], default=None
+        Optional custom processor. If None, a default DataProcessor(config) is used.
+
+    Attributes
+    ----------
+    df : Optional[pd.DataFrame]
+        Loaded (and optionally cleaned) dataset.
+    splits : Dict[str, Tuple[np.ndarray, pd.Series]]
+        Train/test splits as NumPy arrays (model-ready).
+    splits_df : Dict[str, Tuple[pd.DataFrame, pd.Series]]
+        Train/test splits as DataFrames (analysis/plot-ready).
+    lineage : Dict[str, str]
+        Dictionary of lineage metadata for scientific reproducibility.
     """
 
     def __init__(
-        self, config: Optional[DataConfig] = None, downloader: Optional[DataDownloader] = None
+        self,
+        config: Optional[DataConfig] = None,
+        downloader: Optional[DataDownloader] = None,
+        loader: Optional[DataLoader] = None,
+        cleaner: Optional[DataCleaner] = None,
+        processor: Optional[DataProcessor] = None,
     ):
-        """
-        Initialize the data handler with optional dependency injection.
+        self.config: DataConfig = config or DataConfig()
 
-        This constructor demonstrates Dependency Injection principle, allowing
-        different downloader strategies to be injected for testing or different
-        data sources.
-
-        Args:
-            config: Data configuration object. If None, uses default DataConfig.
-            downloader: Data downloader strategy. If None, uses KaggleDownloader.
-        """
-        self.config = config or DataConfig()
-
-        # Use dependency injection for downloader with fallback
-        self.downloader = downloader or KaggleDownloader(
+        # Strategy components
+        self.downloader: DataDownloader = downloader or KaggleDownloader(
             getattr(self.config, "dataset", "alexanderliapatis/miniboone")
         )
+        self.loader: DataLoader = loader or DataLoader(self.config)
+        self.cleaner: DataCleaner = cleaner or DataCleaner(self.config.target_col)
+        self.processor: DataProcessor = processor or DataProcessor(self.config)
 
-        # Initialize component strategies
-        self.loader = DataLoader(self.config)
-        self.cleaner = DataCleaner()
-        self.preprocessor = DataPreprocessor(self.config)
-        self.saver = DataSaver()
-
-        # Initialize state
+        # Internal state
         self.df: Optional[pd.DataFrame] = None
+        # NumPy-based splits (for model training)
         self.splits: Dict[str, Tuple[np.ndarray, pd.Series]] = {}
+        # DataFrame-based splits (for inspection/plotting)
+        self.splits_df: Dict[str, Tuple[pd.DataFrame, pd.Series]] = {}
+        # Scientific lineage / provenance metadata
+        self.lineage: Dict[str, Any] = {}
 
-        # Ensure data directory exists
-        os.makedirs(self.config.data_dir, exist_ok=True)
+        # Ensure base directories exist
+        os.makedirs(getattr(self.config, "data_dir", "data"), exist_ok=True)
+        os.makedirs(getattr(self.config, "cache_dir", "data/processed"), exist_ok=True)
+
+        logger.info("MiniBooNEDataHandler initialized.")
+
+    # -------------------------------------------------------------------------
+    # DATA DOWNLOAD / LOAD
+    # -------------------------------------------------------------------------
+    def download(self) -> str:
+        """
+        Download the MiniBooNE dataset to the configured data directory.
+
+        Returns
+        -------
+        str
+            Path to the downloaded data file.
+        """
+        data_dir = getattr(self.config, "data_dir", "data")
+        path = self.downloader.download(data_dir)
+        self.lineage["download_path"] = path
+        self.lineage["download_timestamp"] = datetime.now().isoformat()
+        logger.info("Dataset downloaded (or confirmed present) at %s", path)
+        return path
 
     def get_data(self, force_download: bool = False) -> pd.DataFrame:
         """
-        Main entry point to get data (downloads if necessary).
+        Ensure data is available, then load into a pandas DataFrame.
 
-        This method orchestrates the complete data acquisition pipeline:
-        checks for existing data, downloads if missing or forced, loads,
-        and returns the dataset.
+        If the main CSV file is not present (or `force_download=True`),
+        the downloader will be invoked.
 
-        Args:
-            force_download: If True, always download even if file exists
-
-        Returns:
-            pd.DataFrame: Loaded dataset
-
-        Raises:
-            RuntimeError: If download fails
-            FileNotFoundError: If data file doesn't exist and download fails
+        Returns
+        -------
+        pd.DataFrame
+            Loaded dataset with standardized feature names and target column.
         """
-        data_file = os.path.join(self.config.data_dir, "MiniBooNE_PID.csv")
+        data_dir = getattr(self.config, "data_dir", "data")
+        data_file = os.path.join(data_dir, "MiniBooNE_PID.csv")
 
         if force_download or not os.path.exists(data_file):
-            print("Downloading dataset...")
-            data_file = self.downloader.download(self.config.data_dir)
+            logger.info("Data file missing or forced re-download requested.")
+            data_file = self.download()
 
-        if self.df is None:
-            self.df = self.loader.load(data_file)
+        logger.info("Loading dataset from %s", data_file)
+        self.df = self.loader.load(data_file)
+
+        self.lineage["data_path"] = data_file
+        self.lineage["data_hash"] = self._compute_dataset_hash(self.df)
+        self.lineage["load_timestamp"] = datetime.now().isoformat()
 
         return self.df
-
-    def download(self) -> None:
-        """
-        Convenience method to download data only.
-
-        Useful for pre-downloading data without loading it into memory.
-        """
-        data_file = os.path.join(self.config.data_dir, "MiniBooNE_PID.csv")
-        self.downloader.download(self.config.data_dir)
 
     def load(self) -> pd.DataFrame:
         """
-        Convenience method to load data only.
+        Load an existing dataset from disk without triggering download.
 
-        Assumes data file already exists locally from previous download.
+        Expects the file `MiniBooNE_PID.csv` in `config.data_dir`.
 
-        Returns:
-            pd.DataFrame: Loaded dataset
-
-        Raises:
-            FileNotFoundError: If data file doesn't exist locally
+        Returns
+        -------
+        pd.DataFrame
+            Loaded dataset.
         """
-        data_file = os.path.join(self.config.data_dir, "MiniBooNE_PID.csv")
+        data_dir = getattr(self.config, "data_dir", "data")
+        data_file = os.path.join(data_dir, "MiniBooNE_PID.csv")
+        if not os.path.exists(data_file):
+            raise FileNotFoundError(f"Data file not found at {data_file}")
+
+        logger.info("Loading dataset directly from %s", data_file)
         self.df = self.loader.load(data_file)
+
+        self.lineage["data_path"] = data_file
+        self.lineage["data_hash"] = self._compute_dataset_hash(self.df)
+        self.lineage["load_timestamp"] = datetime.now().isoformat()
+
         return self.df
 
-    def clean_data(self):
+    # -------------------------------------------------------------------------
+    # CLEANING
+    # -------------------------------------------------------------------------
+    def clean_data(self) -> pd.DataFrame:
         """
-        Clean the loaded data for quality issues.
+        Apply data cleaning (duplicates, NaNs, -999 placeholders).
+
+        Returns
+        -------
+        pd.DataFrame
+            Cleaned dataset.
         """
         if self.df is None:
             raise ValueError("Data not loaded. Call get_data() or load() first.")
 
+        logger.info("Starting data cleaning...")
         self.df = self.cleaner.clean(self.df)
 
-    def preprocess(self) -> Dict[str, Tuple[np.ndarray, pd.Series]]:
-        """
-        Preprocess loaded data into train/validation/test splits.
-
-        Returns:
-            Dictionary with processed splits ready for model training
-        """
-        if self.df is None:
-            raise ValueError("Data not loaded. Call get_data() or load() first.")
-
-        self.splits = self.preprocessor.preprocess(self.df)
-        return self.splits
-
-    def save_processed_data(self, output_dir: str = "processed_data") -> None:
-        """
-        Save processed splits and preprocessing artifacts to disk.
-
-        Args:
-            output_dir: Directory to save processed data
-        """
-        if not self.splits:
-            raise ValueError("No processed data available. Call preprocess() first.")
-
-        self.saver.save_processed_data(
-            splits=self.splits,
-            scaler=self.preprocessor.scaler,
-            feature_names=self.get_feature_names(),
-            output_dir=output_dir,
+        self.lineage["clean_timestamp"] = datetime.now().isoformat()
+        self.lineage["clean_summary"] = (
+            "Duplicates removed, NaNs handled, -999 replaced (see DataCleaner)"
         )
 
-    def get_feature_names(self) -> List[str]:
-        """
-        Get the names of the feature columns (excluding target).
+        logger.info("Data cleaning complete: shape=%s", self.df.shape)
+        return self.df
 
-        Returns:
-            List of feature column names
+    # -------------------------------------------------------------------------
+    # PREPROCESSING / PROCESSING
+    # -------------------------------------------------------------------------
+    def preprocess(
+        self,
+        df: Optional[pd.DataFrame] = None,
+        to_numpy: bool = True,
+    ) -> Union[pd.DataFrame, np.ndarray]:
+        """
+        Run preprocessing on an already-cleaned DataFrame (no splitting).
+
+        This is mainly useful for:
+        - Applying a fitted pipeline to new data (inference)
+        - Transforming a subset for analysis
+
+        Parameters
+        ----------
+        df : Optional[pd.DataFrame]
+            Cleaned input data. If None, uses `self.df`.
+        to_numpy : bool, default=True
+            If True, returns a NumPy array; otherwise, a DataFrame.
+
+        Returns
+        -------
+        Union[pd.DataFrame, np.ndarray]
+            Preprocessed features.
+        """
+        if df is None:
+            if self.df is None:
+                raise ValueError("No dataset available. Load and clean data first.")
+            df = self.df
+
+        X, _ = self.processor.prepare_features(df)
+        X_proc = self.processor.run_pipeline(X)
+
+        logger.info("Preprocessing applied: shape=%s", X_proc.shape)
+        return X_proc.to_numpy() if to_numpy else X_proc
+
+    def process(
+        self,
+        clean: bool = True,
+        export_pipeline: bool = False,
+    ) -> Dict[str, Tuple[np.ndarray, pd.Series]]:
+        """
+        Execute the full pipeline:
+        - Optional cleaning
+        - Preprocessing (scaling, filtering)
+        - Train/test splitting
+        - Optional pipeline export
+
+        Parameters
+        ----------
+        clean : bool, default=True
+            Whether to run cleaning before preprocessing.
+        export_pipeline : bool, default=False
+            Whether to export the fitted preprocessing pipeline.
+
+        Returns
+        -------
+        Dict[str, Tuple[np.ndarray, pd.Series]]
+            Dictionary of train/test splits (NumPy-based).
         """
         if self.df is None:
             raise ValueError("Data not loaded. Call get_data() or load() first.")
-        return [col for col in self.df.columns if col != "signal"]
 
-    def get_data_summary(self) -> Dict[str, any]:
+        if clean:
+            self.clean_data()
+
+        logger.info("Running DataProcessor pipeline...")
+        X_train_df, X_test_df, y_train, y_test = self.processor.process(self.df, to_numpy=False)
+        X_train_np, X_test_np = X_train_df.to_numpy(), X_test_df.to_numpy()
+
+        # Store both formats
+        self.splits_df = {
+            "train": (X_train_df, y_train),
+            "test": (X_test_df, y_test),
+        }
+        self.splits = {
+            "train": (X_train_np, y_train),
+            "test": (X_test_np, y_test),
+        }
+
+        if export_pipeline:
+            self.processor.export_pipeline()
+            self.lineage["pipeline_exported"] = True
+        else:
+            self.lineage["pipeline_exported"] = False
+
+        self.lineage["process_timestamp"] = datetime.now().isoformat()
+
+        logger.info(
+            "Processing complete. Train: X=%s, Test: X=%s",
+            X_train_df.shape,
+            X_test_df.shape,
+        )
+        return self.splits
+
+    # -------------------------------------------------------------------------
+    # SPLIT & DATA UTILITIES
+    # -------------------------------------------------------------------------
+    def get_splits(
+        self, as_dataframe: bool = False
+    ) -> Mapping[str, Tuple[Union[np.ndarray, pd.DataFrame], pd.Series]]:
         """
-        Get comprehensive summary of the loaded dataset.
+        Retrieve train/test splits in the desired format.
 
-        Returns:
-            Dictionary with dataset statistics including sample counts,
-            signal/background distribution, and feature information.
+        Parameters
+        ----------
+        as_dataframe : bool, default=False
+            If True, return DataFrame-based splits; otherwise NumPy-based.
 
+        Returns
+        -------
+        Dict[str, Tuple[Union[np.ndarray, pd.DataFrame], pd.Series]]
+            A mapping from split name to (X, y) pair.
+
+        Raises
+        ------
+        ValueError
+            If splits have not been computed yet.
+        """
+        if as_dataframe:
+            if not self.splits_df:
+                raise ValueError("No DataFrame splits available. Run process() first.")
+            return self.splits_df  # type: ignore
+
+        if not self.splits:
+            raise ValueError("No NumPy splits available. Run process() first.")
+        return self.splits
+
+    def get_feature_names(self) -> Tuple[str, ...]:
+        """
+        Return the feature column names (excluding the target).
+
+        Returns
+        -------
+        Tuple[str, ...]
+            Names of feature columns.
+
+        Raises
+        ------
+        ValueError
+            If data has not been loaded.
         """
         if self.df is None:
             raise ValueError("Data not loaded. Call get_data() or load() first.")
+
+        target_col = getattr(self.config, "target_col", "signal")
+        return tuple(col for col in self.df.columns if col != target_col)
+
+    def get_data_summary(self) -> Dict[str, Any]:
+        """
+        Get a compact summary of the loaded dataset.
+
+        Returns
+        -------
+        Dict[str, Any]
+            Various statistics such as sample counts, class balance,
+            feature count, and missing value count.
+
+        Raises
+        ------
+        ValueError
+            If data has not been loaded.
+        """
+        if self.df is None:
+            raise ValueError("Data not loaded. Call get_data() or load() first.")
+
+        target_col = getattr(self.config, "target_col", "signal")
 
         return {
             "total_samples": len(self.df),
-            "signal_count": (self.df["signal"] == 1).sum(),
-            "background_count": (self.df["signal"] == 0).sum(),
-            "signal_ratio": (self.df["signal"] == 1).mean(),
+            "signal_count": int((self.df[target_col] == 1).sum()),
+            "background_count": int((self.df[target_col] == 0).sum()),
+            "signal_ratio": float((self.df[target_col] == 1).mean()),
             "feature_count": len(self.df.columns) - 1,  # exclude target
-            "feature_names": self.get_feature_names(),
-            "missing_values": self.df.isnull().sum().sum(),
+            "missing_values": int(self.df.isnull().sum().sum()),
         }
+
+    def get_split_shapes(self) -> Dict[str, Tuple[int, int]]:
+        """
+        Return the (n_samples, n_features) shapes for processed splits.
+
+        Returns
+        -------
+        Dict[str, Tuple[int, int]]
+            Mapping from split name to (rows, cols) of X.
+
+        Raises
+        ------
+        ValueError
+            If splits are not available.
+        """
+        if not self.splits:
+            raise ValueError("No splits available. Run process() first.")
+
+        shapes: Dict[str, Tuple[int, int]] = {}
+        for name, (X, _) in self.splits.items():
+            shapes[name] = (int(X.shape[0]), int(X.shape[1]))
+        return shapes
+
+    def save_processed_data(self, output_dir: Optional[Union[str, Path]] = None) -> None:
+        """
+        Save processed train/test splits to disk as CSV files.
+
+        Useful for debugging, sharing preprocessed datasets, or inspecting
+        intermediate results outside the Python environment.
+
+        Parameters
+        ----------
+        output_dir : Optional[Union[str, Path]], default=None
+            Directory to save processed splits. Defaults to `config.data_dir/processed`.
+
+        Raises
+        ------
+        ValueError
+            If splits_df are not available (process() not run).
+        """
+        if not self.splits_df:
+            raise ValueError("No processed splits available. Run process() first.")
+
+        base_dir = Path(
+            output_dir or (Path(getattr(self.config, "data_dir", "data")) / "processed")
+        )
+        base_dir.mkdir(parents=True, exist_ok=True)
+
+        for split_name, (X_df, y) in self.splits_df.items():
+            X_path = base_dir / f"X_{split_name}.csv"
+            y_path = base_dir / f"y_{split_name}.csv"
+            X_df.to_csv(X_path, index=False)
+            y.to_csv(y_path, index=False)
+            logger.info("Saved processed split '%s' to %s and %s", split_name, X_path, y_path)
+
+    # -------------------------------------------------------------------------
+    # LINEAGE / SUMMARY
+    # -------------------------------------------------------------------------
+    def export_lineage(self, path: Optional[Union[str, Path]] = None) -> Path:
+        """
+        Export lineage metadata as JSON for scientific reproducibility.
+
+        Parameters
+        ----------
+        path : Optional[Union[str, Path]], default=None
+            Destination path for lineage JSON. Defaults to
+            `config.cache_dir / 'lineage.json'`.
+
+        Returns
+        -------
+        Path
+            Path where lineage was written.
+        """
+        lineage_path = Path(
+            path or (Path(getattr(self.config, "cache_dir", "data/processed")) / "lineage.json")
+        )
+        lineage_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(lineage_path, "w") as f:
+            json.dump(self.lineage, f, indent=2, default=str)
+
+        logger.info("Lineage exported to %s", lineage_path)
+        return lineage_path
+
+    @staticmethod
+    def _compute_dataset_hash(df: pd.DataFrame) -> str:
+        """
+        Compute a SHA-1 hash for the DataFrame contents.
+
+        Used to track data provenance and detect unintended changes.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Input dataset.
+
+        Returns
+        -------
+        str
+            Hex-encoded SHA-1 hash.
+        """
+        data_bytes = pd.util.hash_pandas_object(df, index=True).values.tobytes()
+        return hashlib.sha1(data_bytes).hexdigest()
+
+    def summary(self) -> None:
+        """
+        Log a human-readable summary of the current dataset, splits, and lineage.
+
+        This is intended for quick inspection in notebooks and logs, not as
+        a machine-readable API (use get_data_summary/get_split_shapes instead).
+        """
+        if self.df is None:
+            logger.warning("No dataset loaded.")
+            return
+
+        logger.info("Dataset shape: %s", self.df.shape)
+        target_col = getattr(self.config, "target_col", "signal")
+        logger.info("Class distribution:\n%s", self.df[target_col].value_counts())
+
+        if self.splits_df:
+            for name, (X, y) in self.splits_df.items():
+                logger.info("Split '%s': X=%s, y=%s", name, X.shape, y.shape)
+
+        if self.lineage:
+            logger.info("Lineage metadata:")
+            for key, value in self.lineage.items():
+                logger.info("  %s: %s", key, value)
+
+    def __repr__(self) -> str:
+        n_rows = len(self.df) if self.df is not None else 0
+        n_cols = len(self.df.columns) if self.df is not None else 0
+        return f"<MiniBooNEDataHandler rows={n_rows} cols={n_cols}>"

@@ -1,8 +1,8 @@
 import warnings
 import matplotlib.pyplot as plt
-from src.utils.logger import get_module_logger
+from src.utils.logger import get_global_logger
 
-logger = get_module_logger(__name__)
+logger = get_global_logger(__name__)
 
 try:
     import scienceplots  # noqa: F401

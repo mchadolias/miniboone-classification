@@ -12,16 +12,26 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import RobustScaler, PowerTransformer
 from typing import Dict, List, Tuple, Optional
-import warnings
-from src.utils.logger import get_module_logger
+from src.utils.logger import get_global_logger
 
-logger = get_module_logger(__name__)
+logger = get_global_logger(__name__)
 
 
 class DataCleaner:
     """
     Enhanced data cleaner for MiniBooNE dataset with specialized handling
     for skewed distributions and outliers while preserving signal structure.
+
+    Attributes
+    ----------
+    target_col : str
+        Name of the target column in the dataset.
+    cleaning_stats : Dict
+        Statistics collected during cleaning for reporting.
+    outlier_thresholds : Dict
+        Thresholds used for outlier detection per feature.
+    transformation_params : Dict
+        Parameters for any transformations applied to features.
     """
 
     def __init__(self, config=None):
@@ -43,16 +53,32 @@ class DataCleaner:
 
     def _handle_missing_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Handle missing data using median imputation while preserving
-        all physics events. Handles fully missing columns gracefully.
+        Handle missing or invalid data while preserving physical events.
+
+        This method:
+        1. Replaces MiniBooNE sentinel values (-999) with NaN.
+        2. Performs median imputation for numeric columns.
+        3. Handles fully missing columns using a global fallback median.
+        4. Logs detailed information about missing data patterns.
 
         Args:
-            df (pd.DataFrame): Input DataFrame possibly containing NaNs.
+            df (pd.DataFrame): Input DataFrame possibly containing NaNs or -999 placeholders.
 
         Returns:
             pd.DataFrame: Cleaned DataFrame with missing values imputed.
         """
         df_clean = df.copy()
+
+        sentinel_mask = df_clean == -999
+        sentinel_count = sentinel_mask.sum().sum()
+        if sentinel_count > 0:
+            logger.info(
+                f"Detected {int(sentinel_count)} sentinel (-999) entries; replacing with NaN."
+            )
+            df_clean.replace(-999, np.nan, inplace=True)
+        else:
+            logger.debug("No sentinel (-999) placeholders detected.")
+
         missing_summary = df_clean.isnull().sum()
         total_missing = missing_summary.sum()
 
@@ -75,7 +101,7 @@ class DataCleaner:
             if pd.api.types.is_numeric_dtype(col_dtype):
                 median_val = df_clean[col].median()
                 if np.isnan(median_val):
-                    # Entire column missing — fall back to global or zero
+                    # Entire column missing — use fallback global median
                     fallback_val = global_median if not np.isnan(global_median) else 0.0
                     logger.warning(
                         f"Column '{col}' entirely missing; filling with fallback value {fallback_val:.4f}."
@@ -91,7 +117,7 @@ class DataCleaner:
 
         remaining = df_clean.isnull().sum().sum()
         if remaining > 0:
-            logger.warning(f"{remaining} missing values remain after imputation.")
+            logger.warning(f"{int(remaining)} missing values remain after imputation.")
         else:
             logger.info("All missing values successfully imputed with column medians.")
 

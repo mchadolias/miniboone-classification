@@ -17,9 +17,9 @@ except ImportError:
 
 from src.plotter import ScientificPlotter
 from src.config import SaveConfig
-from src.utils.logger import get_module_logger
+from src.utils.logger import get_global_logger
 
-logger = get_module_logger(__name__)
+logger = get_global_logger(__name__)
 
 
 class DimensionalityReductionPlotter(ScientificPlotter):

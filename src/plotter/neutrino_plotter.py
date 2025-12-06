@@ -3,10 +3,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import List, Optional, Tuple, Dict, Literal
-
 from src.plotter import ScientificPlotter
 from src.config import SaveConfig
-from src.utils.logger import get_module_logger
 from src.stats.statistical_analysis import (
     compute_bootstrap_error,
     compute_effect_size,
@@ -15,8 +13,9 @@ from src.stats.statistical_analysis import (
     compute_ks_pvalue,
     compute_js_divergence,
 )
+from src.utils.logger import get_global_logger
 
-logger = get_module_logger(__name__)
+logger = get_global_logger(__name__)
 
 
 class NeutrinoPlotter(ScientificPlotter):
@@ -27,6 +26,29 @@ class NeutrinoPlotter(ScientificPlotter):
     This class provides plotting tools to visualize feature separation,
     correlations, and target distributions for physics-inspired
     classification problems.
+
+    Methods
+    -------
+    plot_feature_separation
+        Plot KDE or histogram overlays for signal vs. background distributions.
+    plot_target_distribution
+        Plot target distribution with bootstrapped error bars.
+    plot_top_correlation_heatmap
+        Plot a heatmap of top correlated features with the target or per class.
+    plot_top_correlations
+        Plot the top N features most correlated with the target variable.
+
+    Attributes
+    ----------
+    style : str
+        Matplotlib/SciencePlots style preset for figures.
+
+    Examples
+    --------
+    >>> from src.plotter import NeutrinoPlotter
+    >>> plotter = NeutrinoPlotter(style="science")
+    >>> fig = plotter.plot_feature_separation(df, features=["col_0", "col_1"], target="signal")
+    >>> fig.show()
     """
 
     # -------------------------------------------------------------------------
@@ -147,8 +169,7 @@ class NeutrinoPlotter(ScientificPlotter):
                             data.median(), linestyle=":", color=color, linewidth=1, alpha=0.7
                         )
 
-                ax.set_title(feature, fontsize=11)
-                ax.legend(fontsize=9)
+                ax.legend()
 
             except Exception as e:
                 logger.warning(f"Could not plot separation for '{feature}': {e}")
@@ -158,7 +179,6 @@ class NeutrinoPlotter(ScientificPlotter):
         for j in range(len(features), len(axes)):
             axes[j].set_visible(False)
 
-        fig.suptitle("Feature Separation (Signal vs Background)", fontsize=16)
         fig.tight_layout()
 
         # Save figure and optional metrics summary
@@ -230,7 +250,6 @@ class NeutrinoPlotter(ScientificPlotter):
         }
 
         fig, ax = plt.subplots(figsize=kwargs.get("figsize", (8, 6)))
-        sns.set_style("whitegrid")
 
         # Bar chart with error bars
         bar_container = ax.bar(
@@ -249,7 +268,7 @@ class NeutrinoPlotter(ScientificPlotter):
             if stat == "percent":
                 annotation = f"{height:.2f}%"
             else:
-                annotation = f"{int(height):,} ({(height / total) * 100:.1f}%)"
+                annotation = f"{int(height):,} ({(height / total) * 100:.1f}\\%)"
             ax.text(
                 bar.get_x() + bar.get_width() / 2.0,
                 height + max(ax.get_ylim()) * 0.01,
@@ -260,7 +279,7 @@ class NeutrinoPlotter(ScientificPlotter):
                 fontweight="bold",
             )
 
-        ax.set_ylabel("Percent (%)" if stat == "percent" else "Count")
+        ax.set_ylabel("Percent (\\%)" if stat == "percent" else "Count")
         ax.set_xlabel("")
         ax.set_ylim(0, ax.get_ylim()[1] * 1.15)
         ax.spines[["top", "right"]].set_visible(False)
@@ -334,7 +353,7 @@ class NeutrinoPlotter(ScientificPlotter):
             top_feats = target_corr.abs().nlargest(top_n).index.tolist()
             top_feats.append(target)
 
-            fig, ax = plt.subplots(figsize=(10, 8))
+            fig, ax = plt.subplots()
             sns.heatmap(
                 corr.loc[top_feats, top_feats],
                 annot=True,
@@ -416,7 +435,7 @@ class NeutrinoPlotter(ScientificPlotter):
             top_corr = corr[top_corr.index]  # preserve sign
             colors = ["blue" if val > 0 else "red" for val in top_corr]
 
-            fig, ax = plt.subplots(figsize=(8, 6))
+            fig, ax = plt.subplots()
             bars = ax.barh(top_corr.index, top_corr.values, color=colors, alpha=0.8)
 
             ax.set_title(f"Top {top_n} {method.title()} Correlated Features ({label})")

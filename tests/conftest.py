@@ -18,7 +18,7 @@ def data_handler_with_loaded_data():
 
     # Create sample data
     num_samples = 200
-    data = {f"col_{i}": np.random.normal(0, 1, num_samples) for i in range(50)}
+    data = {f"feature_{i}": np.random.normal(0, 1, num_samples) for i in range(50)}
     handler.df = pd.DataFrame(data)
 
     # Add signal column (28% signal like real data)

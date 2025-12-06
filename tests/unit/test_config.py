@@ -10,21 +10,30 @@ class TestDataLoading:
     def test_data_config_creation(self):
         """Test that DataConfig can be created with defaults"""
         config = DataConfig()
-        assert config.data_dir == "../data/external/"
+        assert config.data_dir == Path("../data/external/")
         assert config.test_size == 0.2
         assert config.val_size == 0.2
         assert config.random_state == 42
         assert config.number_of_signals == 36499
         assert config.number_of_background == 93565
+        assert config.target_col == "signal"
+        assert config.add_outlier_flag == True
+        assert config.variance_threshold == 1e-6
+        assert config.scale_method == "standard"
+        assert config.use_cache == True
+        assert config.cache_dir == Path("../data/processed/")
 
     def test_data_config_environment_variables(self, monkeypatch):
         """Test environment variable overrides"""
         monkeypatch.setenv("DATA_DIR", "/custom/path")
         monkeypatch.setenv("TEST_SIZE", "0.25")
-
+        monkeypatch.setenv("RANDOM_STATE", "1")
+        monkeypatch.setenv("VARIANCE_THRESHOLD", "1e-2")
         config = DataConfig()
-        assert config.data_dir == "/custom/path"
+        assert config.data_dir == Path("/custom/path")
         assert config.test_size == 0.25
+        assert config.random_state == 1
+        assert config.variance_threshold == 1e-2
 
     def test_data_config_validation(self):
         """Test DataConfig parameter validation."""
@@ -133,12 +142,13 @@ class TestDataLoading:
 
     def test_data_dir_validation(self):
         """Test data directory validation."""
-        with pytest.raises(ValueError, match="data_dir must be a non-empty string"):
-            DataConfig(data_dir="")
+
+        with pytest.raises(ValueError):
+            DataConfig(data_dir=None)
 
         # Valid data dir
-        config = DataConfig(data_dir="/custom/path")
-        assert config.data_dir == "/custom/path"
+        config = DataConfig(data_dir=Path("/custom/path"))
+        assert config.data_dir == Path("/custom/path")
 
 
 def test_recommended_split_ratios():

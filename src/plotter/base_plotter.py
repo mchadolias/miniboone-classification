@@ -6,9 +6,9 @@ import seaborn as sns
 
 from src.config import SaveConfig
 from src.styles.plot_style import setup_scientific_plotting
-from src.utils.logger import get_module_logger
+from src.utils.logger import get_global_logger
 
-logger = get_module_logger(__name__)
+logger = get_global_logger(__name__)
 
 
 class ScientificPlotter:
