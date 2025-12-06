@@ -6,6 +6,7 @@ import pandas as pd
 
 from src.config.config import DataConfig
 from src.utils.logger import get_global_logger
+from kaggle.api.kaggle_api_extended import KaggleApi
 
 logger = get_global_logger(__name__)
 
@@ -61,6 +62,7 @@ class KaggleDownloader(DataDownloader):
             e.g. 'alexanderliapatis/miniboone'.
         """
         self.dataset = dataset
+        self.api = KaggleApi()
 
     def download(self, data_dir: str) -> str:
         """
@@ -83,15 +85,19 @@ class KaggleDownloader(DataDownloader):
             Path to the downloaded MiniBooNE_PID.csv file.
         """
         try:
-            from kaggle.api.kaggle_api_extended import KaggleApi
-
             logger.info("Authenticating with Kaggle API...")
-            api = KaggleApi()
-            api.authenticate()
+            try:
+                self.api.authenticate()
+            except Exception as auth_exc:
+                logger.warning(
+                    "Kaggle authentication failed. Ensure Kaggle API credentials are set up correctly. "
+                    "Refer to https://www.kaggle.com/docs/api for guidance."
+                )
+                raise auth_exc
 
             os.makedirs(data_dir, exist_ok=True)
             logger.info(f"Downloading dataset '{self.dataset}' to {data_dir}...")
-            api.dataset_download_files(self.dataset, path=data_dir, unzip=False)
+            self.api.dataset_download_files(self.dataset, path=data_dir, unzip=False)
 
             # Extract and clean up zip files
             for fname in os.listdir(data_dir):

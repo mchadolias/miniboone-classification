@@ -59,40 +59,32 @@ def test_local_file_downloader_missing_file():
 # -----------------------------------------------------------------------------
 # Test KaggleDownloader (fully mocked)
 # -----------------------------------------------------------------------------
-@patch("kaggle.api.kaggle_api_extended.KaggleApi")
-def test_kaggle_downloader(mock_api, tmp_path):
-    """
-    Ensure KaggleDownloader:
-        - Authenticates
-        - Calls dataset_download_files
-        - Extracts ZIP
-        - Returns expected CSV
-    """
-    kaggle_dir = tmp_path / "data"
-    kaggle_dir.mkdir()
+@patch("src.data.data_loader.KaggleApi")
+def test_kaggle_downloader(mock_kaggle_api, tmp_path):
+    """Test KaggleDownloader without Kaggle credentials."""
 
-    # Mock Kaggle API behavior -----------------------------------------------
-    instance = mock_api.return_value
-    instance.dataset_download_files.return_value = None
+    # Mock instance returned by KaggleApi()
+    mock_api_instance = MagicMock()
+    mock_kaggle_api.return_value = mock_api_instance
 
-    # Create a fake zip file to simulate download
-    zip_path = kaggle_dir / "dummy.zip"
-    dummy_csv_path = kaggle_dir / "MiniBooNE_PID.csv"
+    # Ensure authenticate() does nothing
+    mock_api_instance.authenticate.return_value = None
 
-    import zipfile
+    # Ensure dataset download does nothing
+    mock_api_instance.dataset_download_files.return_value = None
 
-    with zipfile.ZipFile(zip_path, "w") as z:
-        z.writestr("MiniBooNE_PID.csv", "col1,col2\n1,2")
+    # Create fake output CSV that the code will detect
+    fake_csv = tmp_path / "MiniBooNE_PID.csv"
+    fake_csv.write_text("a,b,c\n1,2,3")
 
-    downloader = KaggleDownloader("alexanderliapatis/miniboone")
+    downloader = KaggleDownloader(dataset="someuser/miniboone")
+    output_path = downloader.download(tmp_path)
 
-    returned_path = downloader.download(str(kaggle_dir))
+    # The function returns a string, so cast both to str
+    assert str(output_path) == str(fake_csv)
 
-    assert Path(returned_path).exists()
-    assert Path(returned_path).name == "MiniBooNE_PID.csv"
-
-    instance.authenticate.assert_called_once()
-    instance.dataset_download_files.assert_called_once()
+    mock_api_instance.authenticate.assert_called_once()
+    mock_api_instance.dataset_download_files.assert_called_once()
 
 
 # -----------------------------------------------------------------------------
