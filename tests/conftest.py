@@ -74,6 +74,15 @@ def sample_neutrino_data():
 
 
 @pytest.fixture
+def sample_neutrino_data_flag_added(sample_neutrino_data):
+    """Sample neutrino dataset with outlier flag for plotting tests."""
+    df = sample_neutrino_data.copy()
+    outlier_threshold = np.percentile(df["feature_1"], 95)
+    df["is_outlier"] = (df["feature_1"] > outlier_threshold).astype(int)
+    return df
+
+
+@pytest.fixture
 def synthetic_miniboone_data():
     """Create a synthetic MiniBooNE-like dataset for testing."""
     n_samples = 200

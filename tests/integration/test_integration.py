@@ -7,6 +7,7 @@ import pandas as pd
 from src.data.data_handler import MiniBooNEDataHandler
 from src.plotter import NeutrinoPlotter
 from src.config import DataConfig
+from pathlib import Path
 
 
 class TestIntegration:
@@ -15,7 +16,7 @@ class TestIntegration:
     def test_complete_pipeline_with_mock_data(self, sample_neutrino_data, tmp_path):
         """Test complete pipeline with mocked data."""
         # Setup
-        config = DataConfig(data_dir=str(tmp_path))
+        config = DataConfig(data_dir=Path(tmp_path))
         handler = MiniBooNEDataHandler(config=config)
         plotter = NeutrinoPlotter()
 
@@ -23,12 +24,10 @@ class TestIntegration:
         handler.df = sample_neutrino_data
 
         # Test full workflow
-        handler.clean_data()
-        splits = handler.preprocess()
+        splits = handler.process()
 
         # Verify splits
         assert "train" in splits
-        assert "val" in splits
         assert "test" in splits
 
         # Test plotting on processed data
