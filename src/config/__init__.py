@@ -1,11 +1,11 @@
 from .config import DataConfig, SaveConfig
 from .presets import (
-    VIOLIN_PRESETS,
     BOXPLOT_PRESETS,
-    ViolinPlotConfig,
+    VIOLIN_PRESETS,
     BoxplotConfig,
     CorrelationConfig,
     DistributionConfig,
+    ViolinPlotConfig,
 )
 
 __all__ = [

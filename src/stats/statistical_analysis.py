@@ -1,11 +1,13 @@
 # src/stats/statistical_analysis.py
 
+from typing import List, Literal, Optional
+
 import numpy as np
 import pandas as pd
-from typing import Literal, Optional, List
-from scipy.stats import mannwhitneyu, ks_2samp, ttest_ind, entropy
+from scipy.stats import entropy, ks_2samp, mannwhitneyu, ttest_ind
 from sklearn.metrics import roc_auc_score
 from statsmodels.stats.multitest import multipletests
+
 from src.utils.logger import get_global_logger
 
 logger = get_global_logger(__name__)

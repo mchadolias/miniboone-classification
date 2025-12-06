@@ -10,20 +10,20 @@ Supports:
 
 from __future__ import annotations
 
-import json
-import hashlib
-import joblib
-import time
 from datetime import datetime
+import hashlib
+import json
 from pathlib import Path
-from typing import Optional, Tuple, List, Dict, Union
+import time
+from typing import Dict, List, Optional, Tuple, Union
 
+import joblib
 import numpy as np
 import pandas as pd
+from sklearn.feature_selection import VarianceThreshold
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler, RobustScaler
-from sklearn.feature_selection import VarianceThreshold
+from sklearn.preprocessing import RobustScaler, StandardScaler
 
 from src.config.config import DataConfig
 from src.utils.logger import get_global_logger

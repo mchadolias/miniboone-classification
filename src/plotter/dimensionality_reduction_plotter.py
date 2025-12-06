@@ -1,12 +1,12 @@
+from typing import Optional
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
-from typing import Optional, List
-
 from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
 from sklearn.manifold import TSNE
+from sklearn.preprocessing import StandardScaler
 
 try:
     import umap
@@ -15,8 +15,8 @@ try:
 except ImportError:
     UMAP_AVAILABLE = False
 
-from src.plotter import ScientificPlotter
 from src.config import SaveConfig
+from src.plotter import ScientificPlotter
 from src.utils.logger import get_global_logger
 
 logger = get_global_logger(__name__)
@@ -79,7 +79,7 @@ class DimensionalityReductionPlotter(ScientificPlotter):
         labels = df[target].values
 
         fig, ax = plt.subplots(figsize=(8, 6))
-        scatter = ax.scatter(
+        ax.scatter(
             components[:, 0],
             components[:, 1],
             c=labels,

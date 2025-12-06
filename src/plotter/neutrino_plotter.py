@@ -1,17 +1,19 @@
+from typing import Dict, List, Literal, Optional, Tuple
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
-from typing import List, Optional, Tuple, Dict, Literal
-from src.plotter import ScientificPlotter
+
 from src.config import SaveConfig
+from src.plotter import ScientificPlotter
 from src.stats.statistical_analysis import (
+    compute_auc_score,
     compute_bootstrap_error,
     compute_effect_size,
-    compute_auc_score,
-    compute_mannwhitney_pvalue,
-    compute_ks_pvalue,
     compute_js_divergence,
+    compute_ks_pvalue,
+    compute_mannwhitney_pvalue,
 )
 from src.utils.logger import get_global_logger
 
@@ -339,7 +341,6 @@ class NeutrinoPlotter(ScientificPlotter):
             Dictionary with figure handles, keyed by class label.
         """
         self.validate_dataframe(df, required_cols=[target])
-        numeric_df = df.select_dtypes(include=[np.number])
 
         def _make_heatmap(data: pd.DataFrame, label: str) -> plt.Figure:
             corr = data.corr(method=method)

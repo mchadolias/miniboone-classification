@@ -1,13 +1,11 @@
+from abc import ABC, abstractmethod
 import os
 import zipfile
-from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 
-from src.utils.logger import get_global_logger
 from src.config.config import DataConfig
+from src.utils.logger import get_global_logger
 
 logger = get_global_logger(__name__)
 

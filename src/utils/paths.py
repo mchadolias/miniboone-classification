@@ -1,7 +1,8 @@
-from pathlib import Path
 import os
-from dotenv import load_dotenv
+from pathlib import Path
 from typing import Optional
+
+from dotenv import load_dotenv
 
 
 def get_project_root(start: Optional[Path] = None) -> Path:

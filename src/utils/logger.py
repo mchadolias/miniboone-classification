@@ -1,144 +1,65 @@
+# src/utils/logger.py
 import logging
-import sys
-import os
-import json
-import yaml
-from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional
+
+import yaml
+
+from src.utils.paths import get_logging_config_path, get_logs_dir
+
+_LOGGING_INITIALIZED = False
 
 
-# --- Colors ---
-class LogColors:
-    RESET = "\033[0m"
-    BOLD = "\033[1m"
-    DIM = "\033[2m"
-    RED = "\033[31m"
-    GREEN = "\033[32m"
-    YELLOW = "\033[33m"
-    MAGENTA = "\033[35m"
-    GRAY = "\033[90m"
+def load_logging_config(config_path: Path) -> Optional[dict]:
+    """Load YAML config or return None if missing or invalid."""
+    try:
+        with open(config_path, "r") as f:
+            return yaml.safe_load(f)
+    except Exception as e:
+        print(f"[WARN] Could not load logging config at {config_path}: {e}")
+        return None
 
 
-def supports_color() -> bool:
-    return sys.stdout.isatty() and os.environ.get("NO_COLOR") is None
+def setup_global_logger(config_path: Optional[Path] = None) -> None:
+    """Initialize logging system with YAML config or fallback."""
+    global _LOGGING_INITIALIZED
+    if _LOGGING_INITIALIZED:
+        return
 
+    config_path = config_path or get_logging_config_path()
+    config = load_logging_config(config_path)
 
-# --- Formatters ---
-class ASCIILogFormatter(logging.Formatter):
-    def format(self, record):
-        return f"| {self.formatTime(record, '%Y-%m-%d %H:%M:%S')} | {record.levelname:<8} | {record.name:<25} | {record.getMessage()}"
+    logs_dir = get_logs_dir()
+    logs_dir.mkdir(parents=True, exist_ok=True)
 
-
-class ColorLogFormatter(logging.Formatter):
-    LEVEL_COLORS = {
-        "DEBUG": LogColors.GRAY + LogColors.DIM,
-        "INFO": LogColors.GREEN,
-        "WARNING": LogColors.YELLOW,
-        "ERROR": LogColors.RED + LogColors.BOLD,
-        "CRITICAL": LogColors.MAGENTA + LogColors.BOLD,
-    }
-
-    def format(self, record):
-        color = self.LEVEL_COLORS.get(record.levelname, LogColors.RESET)
-        reset = LogColors.RESET
-        return f"{color}| {self.formatTime(record, '%H:%M:%S')} | {record.levelname:<8} | {record.name:<25} | {record.getMessage()}{reset}"
-
-
-class JSONLogFormatter(logging.Formatter):
-    def format(self, record):
-        obj = {
-            "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage(),
-        }
-        if record.exc_info:
-            obj["exception"] = self.formatException(record.exc_info)
-        return json.dumps(obj)
-
-
-# --- YAML Configuration Loader ---
-def load_logging_config(config_path: Path) -> Dict[str, Any]:
-    """Load YAML logging configuration."""
-    with open(config_path, "r") as f:
-        cfg = yaml.safe_load(f)
-    return cfg
-
-
-# --- Logger Factory ---
-def get_logger_from_config(
-    name: str,
-    config_path: Optional[Path] = None,
-) -> logging.Logger:
-    """
-    Create a logger from YAML configuration file.
-    Automatically resolves the project root and falls back to defaults if missing.
-    """
-    # --- Resolve config path automatically ---
-    if config_path is None or not Path(config_path).exists():
-        # Locate the project root relative to this file (src/utils/logger.py)
-        base_dir = Path(__file__).resolve().parents[1]  # points to src/
-        candidate_path = base_dir / "config/logging.yaml"
-
-        if candidate_path.exists():
-            config_path = candidate_path
-        else:
-            print(
-                f"[WARNING] Logging config not found at {candidate_path}, using fallback config."
-            )
-            # fallback minimal configuration
-            config = {
-                "defaults": {
-                    "console_level": "INFO",
-                    "file_level": "DEBUG",
-                    "json_logging": False,
-                    "enable_color": True,
-                    "log_dir": "logs",
-                }
-            }
-            return _create_logger_from_dict(name, config)
-
-    # Load YAML config if file exists
-    with open(config_path, "r") as f:
-        config = yaml.safe_load(f)
-
-    return _create_logger_from_dict(name, config)
-
-
-def _create_logger_from_dict(name: str, config: dict) -> logging.Logger:
-    """Helper to instantiate a logger from config dict."""
-    defaults = config.get("defaults", {})
-    log_dir = Path(defaults.get("log_dir", "logs"))
-    log_dir.mkdir(parents=True, exist_ok=True)
-
-    console_level = getattr(logging, defaults.get("console_level", "INFO"))
-    file_level = getattr(logging, defaults.get("file_level", "DEBUG"))
-    enable_color = defaults.get("enable_color", True)
-    json_logging = defaults.get("json_logging", False)
-
-    logger = logging.getLogger(name)
-    if logger.handlers:
-        return logger
-
-    logger.setLevel(min(console_level, file_level))
-
-    # --- Console handler ---
-    console = logging.StreamHandler(sys.stdout)
-    console.setLevel(console_level)
-    console.setFormatter(
-        ColorLogFormatter() if enable_color and supports_color() else ASCIILogFormatter()
+    fmt = (
+        config["format"]["ascii"]
+        if config
+        else "| {asctime} | {levelname:<8} | {name:<28} | {message}"
     )
-    logger.addHandler(console)
 
-    # --- File handler ---
-    file_handler = logging.FileHandler(
-        log_dir / f"{datetime.now():%Y%m%d_%H%M%S}_{name.replace('.', '_')}.log"
-    )
-    file_handler.setLevel(file_level)
-    file_handler.setFormatter(ASCIILogFormatter())
-    logger.addHandler(file_handler)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(logging.Formatter(fmt, style="{"))
+    stream_handler.setLevel(logging.INFO)
 
-    logger.propagate = False
-    logger.debug(f"Logger initialized for {name}")
-    return logger
+    file_handler = logging.FileHandler(logs_dir / "main.log")
+    file_handler.setFormatter(logging.Formatter(fmt, style="{"))
+    file_handler.setLevel(logging.DEBUG)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    root_logger.addHandler(stream_handler)
+    root_logger.addHandler(file_handler)
+
+    root_logger.info("=" * 80)
+    root_logger.info(f"Logging initialized from: {config_path}")
+    root_logger.info(f"Logs directory: {logs_dir}")
+    root_logger.info("=" * 80)
+
+    _LOGGING_INITIALIZED = True
+
+
+def get_global_logger(name: str) -> logging.Logger:
+    """Return or initialize a named logger."""
+    setup_global_logger()
+    return logging.getLogger(name)

@@ -12,126 +12,103 @@ REPORT_DIR = test_reports
 # COMMANDS                                                                      #
 #################################################################################
 
-.PHONY: requirements clean lint format test test-dev test-html test-cov test-full
-.PHONY: test-smoke test-unit test-integration open-report open-cov create_environment help
-.PHONY: test-cov-ci test-ci lint-ci format-ci lint-ci-nonblocking
+.PHONY: clean lint lint-fix format format-ci lint-ci lint-ci-nonblocking \
+        test test-ci test-unit test-integration test-dev test-cov test-cov-ci \
+        test-html test-full test-smoke open-report open-cov requirements \
+		create_environment help
 
 ## Install Python dependencies
 requirements:
 	uv sync
 
-## Delete all compiled Python files
+## Remove cached files
 clean:
 	find . -type f -name "*.py[co]" -delete
 	find . -type d -name "__pycache__" -delete
-	rm -rf $(REPORT_DIR)
-	rm -rf .pytest_cache
-	rm -rf .coverage
-	rm -rf htmlcov
+	rm -rf $(REPORT_DIR) .pytest_cache .coverage htmlcov
 
-## Lint using flake8, black, and isort (use `make format` to do formatting)
+## Lint check (flake8 + isort + black)
 lint:
 	uv run flake8 src
 	uv run isort --check --diff src
 	uv run black --check src
 
-## Format source code with black and isort
+## Auto-fix linting (recommended locally)
+lint-fix:
+	uv run autoflake -r --remove-all-unused-imports --in-place src
+	uv run isort src
+	uv run black src
+
+## Format code automatically
 format:
+	uv run autoflake -r --remove-unused-variables --remove-all-unused-imports --in-place src
 	uv run isort src
 	uv run black src
 
-## Format for CI (with output)
+## CI auto-format (quiet output)
 format-ci:
-	@echo "🎨 Auto-formatting code with isort..."
+	uv run autoflake -r --remove-all-unused-imports --in-place src
 	uv run isort src
-	@echo "🎨 Auto-formatting code with black..."
 	uv run black src
-	@echo "✅ Code formatting completed"
 
-## Run tests for CI 
-test-ci:
-	uv run pytest $(TEST_DIR) -v
-
-## Run linting for CI - fails on style issues  
+## Strict CI lint
 lint-ci:
 	uv run flake8 src
 	uv run isort --check --diff src
 	uv run black --check src
 
-## Run linting for CI (non-blocking) - shows issues but doesn't fail
+## Lint for feature branches (non-blocking)
 lint-ci-nonblocking:
-	@echo "🔍 Running flake8 (non-blocking)..."
-	-uv run flake8 src || echo "⚠️  Flake8 found issues (non-blocking)"
-	@echo "🔍 Running isort check (non-blocking)..."
-	-uv run isort --check --diff src || echo "⚠️  Isort found issues (non-blocking)" 
-	@echo "🔍 Running black check (non-blocking)..."
-	-uv run black --check src || echo "⚠️  Black found issues (non-blocking)"
-	@echo "✅ Linting checks completed (non-blocking mode)"
+	-uv run flake8 src || echo "⚠️  flake8 issues (non-blocking)"
+	-uv run isort --check --diff src || echo "⚠️  isort issues (non-blocking)"
+	-uv run black --check src || echo "⚠️  black issues (non-blocking)"
 
-## Run tests with coverage for CI
-test-cov-ci:
-	mkdir -p $(REPORT_DIR)
-	uv run pytest $(TEST_DIR) --cov=src --cov-report=term-missing --cov-report=html:$(REPORT_DIR)/coverage --cov-report=xml:$(REPORT_DIR)/coverage.xml
-	@echo "📈 Coverage report: $(REPORT_DIR)/coverage/index.html"
-
-## Run tests
+## Run all tests
 test:
 	uv run pytest $(TEST_DIR)
 
-## Run tests with verbose output and stop on first failure
+## Unit tests only
+test-unit:
+	uv run pytest $(TEST_DIR)/unit -v
+
+## Integration tests only
+test-integration:
+	uv run pytest $(TEST_DIR)/integration -v
+
+## Development tests
 test-dev:
 	uv run pytest $(TEST_DIR) -v --tb=short -x
 
-## Run tests with HTML report (no coverage)
+## Coverage CI
+test-cov-ci:
+	mkdir -p $(REPORT_DIR)
+	uv run pytest $(TEST_DIR) \
+		--cov=src \
+		--cov-report=term-missing \
+		--cov-report=html:$(REPORT_DIR)/coverage \
+		--cov-report=xml:$(REPORT_DIR)/coverage.xml
+	@echo "📈 Coverage report written to $(REPORT_DIR)/coverage/"
+
+## Quick smoke tests
+test-smoke:
+	uv run pytest $(TEST_DIR)/smoke -v
+
+## HTML-only report
 test-html:
 	mkdir -p $(REPORT_DIR)
 	uv run pytest $(TEST_DIR) --html=$(REPORT_DIR)/report.html --self-contained-html
-	@echo "📊 HTML report generated: $(REPORT_DIR)/report.html"
 
-## Run tests with coverage report
-test-cov:
-	mkdir -p $(REPORT_DIR)
-	uv run pytest $(TEST_DIR) --cov=src --cov-report=term-missing --cov-report=html:$(REPORT_DIR)/coverage
-	@echo "📈 Coverage report: $(REPORT_DIR)/coverage/index.html"
-
-## Run tests with both HTML and coverage reports
+## Full test suite
 test-full:
 	mkdir -p $(REPORT_DIR)
-	uv run pytest $(TEST_DIR) --cov=src --cov-report=term-missing --cov-report=html:$(REPORT_DIR)/coverage --html=$(REPORT_DIR)/report.html --self-contained-html
-	@echo "📊 HTML report: $(REPORT_DIR)/report.html"
-	@echo "📈 Coverage report: $(REPORT_DIR)/coverage/index.html"
+	uv run pytest $(TEST_DIR) \
+		--cov=src \
+		--cov-report=html:$(REPORT_DIR)/coverage \
+		--html=$(REPORT_DIR)/report.html --self-contained-html
 
-## Run quick smoke tests only
-test-smoke:
-	uv run pytest $(TEST_DIR)/smoke/ -v
-
-## Run only unit tests
-test-unit:
-	uv run pytest $(TEST_DIR)/unit/ -v
-
-## Run only integration tests  
-test-integration:
-	uv run pytest $(TEST_DIR)/integration/ -v
-
-## Open the latest test report in browser (macOS)
-open-report:
-	@if command -v xdg-open > /dev/null; then \
-		xdg-open $(REPORT_DIR)/report.html; \
-	elif command -v open > /dev/null; then \
-		open $(REPORT_DIR)/report.html; \
-	else \
-		echo "Please open manually: $(REPORT_DIR)/report.html"; \
-	fi
-
-## Open the latest coverage report in browser (macOS)
+## Open coverage report
 open-cov:
-	@if command -v xdg-open > /dev/null; then \
-		xdg-open $(REPORT_DIR)/coverage/index.html; \
-	elif command -v open > /dev/null; then \
-		open $(REPORT_DIR)/coverage/index.html; \
-	else \
-		echo "Please open manually: $(REPORT_DIR)/coverage/index.html"; \
-	fi
+	xdg-open $(REPORT_DIR)/coverage/index.html || open $(REPORT_DIR)/coverage/index.html
 
 ## Set up Python interpreter environment
 create_environment:

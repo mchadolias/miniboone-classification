@@ -1,5 +1,6 @@
-from typing import List, Optional
 from pathlib import Path
+from typing import List, Optional
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns

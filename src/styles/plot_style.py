@@ -1,5 +1,7 @@
 import warnings
+
 import matplotlib.pyplot as plt
+
 from src.utils.logger import get_global_logger
 
 logger = get_global_logger(__name__)

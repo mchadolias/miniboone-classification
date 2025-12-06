@@ -1,7 +1,6 @@
 from .base_plotter import ScientificPlotter
-from .neutrino_plotter import NeutrinoPlotter
 from .dimensionality_reduction_plotter import DimensionalityReductionPlotter
-
+from .neutrino_plotter import NeutrinoPlotter
 
 __all__ = [
     "ScientificPlotter",

@@ -36,10 +36,10 @@ Project: MiniBooNE Neutrino Classification
 
 from __future__ import annotations
 
-import json
-import hashlib
-import os
 from datetime import datetime
+import hashlib
+import json
+import os
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Tuple, Union
 
@@ -48,8 +48,8 @@ import pandas as pd
 
 from src.config.config import DataConfig
 from src.data.data_cleaner import DataCleaner
+from src.data.data_loader import DataDownloader, DataLoader, KaggleDownloader
 from src.data.data_processor import DataProcessor
-from src.data.data_loader import DataLoader, DataDownloader, KaggleDownloader
 from src.utils.logger import get_global_logger
 
 logger = get_global_logger(__name__)

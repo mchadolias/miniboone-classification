@@ -1,4 +1,4 @@
-name: Tests
+name: CI Tests & Quality
 
 on:
   push:
@@ -8,35 +8,47 @@ on:
 
 jobs:
   quality-and-tests:
-    name: Code Quality & Tests
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
     steps:
+      # --------------------------
+      # Checkout repo
+      # --------------------------
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # --------------------------
+      # Install uv package manager
+      # --------------------------
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
           version: "latest"
 
+      # --------------------------
+      # Setup Python (3.14 prerelease)
+      # --------------------------
       - name: Set up Python 3.14
         uses: actions/setup-python@v4
         with:
           python-version: "3.14"
           allow-prereleases: true
 
+      # --------------------------
+      # Cache uv dependencies
+      # --------------------------
       - name: Cache uv dependencies
         uses: actions/cache@v4
         with:
           path: |
             .uv_cache
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-3.14-${{ hashFiles('**/uv.lock', '**/pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-uv-3.14-
+          key: ${{ runner.os }}-uv-3.14-${{ hashFiles('uv.lock', 'pyproject.toml') }}
 
+      # --------------------------
+      # Cache dataset & kaggle
+      # --------------------------
       - name: Cache project data
         uses: actions/cache@v4
         with:
@@ -44,14 +56,18 @@ jobs:
             data/
             .cache/
             ~/.cache/kaggle
-          key: ${{ runner.os }}-data-${{ hashFiles('Makefile', '**/data/**') }}
-          restore-keys: |
-            ${{ runner.os }}-data-
+          key: ${{ runner.os }}-data-${{ hashFiles('Makefile', 'data/**') }}
 
+      # --------------------------
+      # Install all dependencies
+      # --------------------------
       - name: Install dependencies
         run: |
           uv sync --extra all
 
+      # --------------------------
+      # Kaggle credentials
+      # --------------------------
       - name: Set up Kaggle credentials
         run: |
           mkdir -p ~/.kaggle
@@ -61,39 +77,71 @@ jobs:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
 
-      - name: Run linting
+      # --------------------------
+      # Linting logic:
+      #   - main/master → strict lint-ci
+      #   - others     → auto-format + warn-only
+      # --------------------------
+      - name: Lint code
         run: |
-          # Only fail on linting for main/master branches
-          if [[ "${{ github.ref }}" == refs/heads/main || "${{ github.ref }}" == refs/heads/master ]]; then
-            make lint-ci  # Strict linting for main branches
+          if [[ "${{ github.ref }}" == "refs/heads/main" || \
+                "${{ github.ref }}" == "refs/heads/master" ]]; then
+              echo "Running strict linting..."
+              make lint-ci
           else
-            make lint-ci-nonblocking  # Warning-only for feature branches
+              echo "Running auto-format + non-blocking linting..."
+              make format-ci
+              make lint-ci-nonblocking
           fi
 
-      - name: Run unit tests
-        run: |
-          make test-unit
-
-      - name: Run integration tests
-        run: |
-          make test-integration
-
-      - name: Run tests with coverage
-        run: |
-          make test-cov-ci
-
-      - name: Upload coverage reports
-        if: ${{ !env.ACT && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') }}
+      # --------------------------
+      # Upload lint diff if non-main branch
+      # --------------------------
+      - name: Upload lint report (non-main branches)
+        if: startsWith(github.ref, 'refs/heads/feature/') || github.ref == 'refs/heads/develop'
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report-${{ github.ref_name }}
+          name: lint-diff
+          path: .
+          retention-days: 7
+
+      # --------------------------
+      # Unit tests
+      # --------------------------
+      - name: Run unit tests
+        run: make test-unit
+
+      # --------------------------
+      # Integration tests
+      # --------------------------
+      - name: Run integration tests
+        run: make test-integration
+
+      # --------------------------
+      # Full coverage
+      # --------------------------
+      - name: Coverage tests
+        run: make test-cov-ci
+        continue-on-error: false
+
+      # --------------------------`
+      # Upload coverage HTML
+      # --------------------------
+      - name: Upload Coverage Report
+        if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
           path: test_reports/coverage/
           retention-days: 30
 
+      # --------------------------
+      # Upload coverage to Codecov
+      # --------------------------
       - name: Upload to Codecov
-        if: ${{ !env.ACT && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') }}
+        if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
         uses: codecov/codecov-action@v4
         with:
           file: ./test_reports/coverage/coverage.xml
           flags: unittests
-          name: codecov-${{ github.ref_name }}
+          name: codecov-main-branch
