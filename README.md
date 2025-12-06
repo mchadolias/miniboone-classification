@@ -2,157 +2,215 @@
 
 ![Tests](https://github.com/mchadolias/miniboone-classification/actions/workflows/test.yml/badge.svg)
 
-A machine learning project to distinguish electron neutrinos (signal) from muon neutrinos (background) based on reconstructed detector event features from the MiniBooNE experiment.
+A fully modular, reproducible machine-learning pipeline for distinguishing **electron neutrinos (signal)** from **muon neutrinos (background)** in the MiniBooNE particle-physics dataset.
 
-## 🚀 Features
+This project provides:
 
-- **Data Handling**: Automated download and preprocessing of MiniBooNE dataset
-- **Machine Learning**: XGBoost model for particle classification  
-- **Testing**: Comprehensive test suite with pytest and coverage
-- **CI/CD**: Automated testing on every commit
-- **Code Quality**: Linting and formatting with flake8, black, isort
+- 🚀 Automated **download**, **loading**, **cleaning**, **processing**, and **splitting** of MiniBooNE PID data
+- 📊 Publication-quality **physics-aware visualizations**
+- 🧠 Machine-learning support and extensibility (XGBoost, future deep models)
+- 🧪 A comprehensive, structured **test suite** (unit + integration + performance)
+- 🛠 Modern **project architecture** following PyPA and scientific computing best practices
+- 🔍 A research workflow with **data lineage**, reproducibility, and structured configuration
+
+## 🚀 Key Features
+
+### 🧬 Pipeline
+
+- Unified data ingestion (Kaggle or local files)
+- Robust cleaning of NaNs, MiniBooNE sentinel values, and duplicates
+- Physics-aware preprocessing and feature transformations
+- Flexible outputs: **NumPy arrays** or **Pandas DataFrames**
+
+### 📊 Visualization
+
+- Signal–background separation plots (KDE, histograms)
+- Correlation analysis and feature summary plots
+- PCA, t-SNE, and other embedding visualizations
+- Publication-ready scientific styling (LaTeX optional)
+
+### 📐 Statistical Toolkit
+
+- Effect size computation (Cohen’s *d*, rank-biserial)
+- Hypothesis testing and multi-comparison correction
+- Feature separability scoring and ranking
+
+### 🧪 Testing Framework
+
+- Mocked external dependencies (Kaggle API, I/O)
+- Comprehensive unit tests for loader, cleaner, processor, and plotters
+- Statistical validation tests
+- Integration, smoke, and performance tests
+
+### 🏗 Engineering & Workflow
+
+- CI/CD via GitHub Actions
+- YAML-driven logging (colored console, JSON optional)
+- Standardized Makefile automation
+- Modular and research-oriented `src/` architecture
+
+---
 
 ## 📁 Project Structure
 
 ```markdown
 miniboone-classification/
-├── data
-│   ├── external                    # Data from third party sources.
-│   └── processed                   # The final, canonical data sets for modeling.
-├── notebooks                       # Jupyter notebooks. Naming convention is a number (for ordering)
-│   └── 01_data_exploration.ipynb 
+├── data/
+│   ├── external/                         # Raw third-party datasets (e.g., MiniBooNE PID CSV)
+│   └── processed/                        # Cleaned + transformed datasets ready for modeling
+├── notebooks/                            # Exploratory notebooks (numbered for execution order)
+│   └── 01_data_exploration.ipynb
 ├── src/
-│   ├── config.py                   # Configuration management
-│   ├── data/      
-│   │   └── data_handler.py         # Data loading and preprocessing
-│   └── visualization/      
-│       └── plotter.py              # Visualization utilities
-├── tests/      
-│    ├── output/                    # Dumping ground for quick checks        
-│    ├── reports/                   # Coverage reports in HTML
-│    ├── conftest.py                # Configuration for test
-│    ├── integration
-│    │   ├── test_error_handling.py # Integration tests for error handling
-│    │   ├── test_integration.py    # General integration tests
-│    │   └── test_performance.py    # Test performance
-│    ├── test_smokes.py             # Quick smoke tests
-│    └── unit
-│        ├── test_config.py         # Unit test for configuration
-│        ├── test_data_handler.py   # Unit test for data_handler.py
-│        └── test_plotter.py        # Unit test for plotter.py
-├── .github/workflows/              # CI/CD pipeline
-├── pyproject.toml                  # Project dependencies
-├── Makefile                        # Development commands
-├── figures/                        # Figures
-├── models/                         # Trained and serialized models,predictions, or summaries
-├── LICENSE                         # Open-source license
-└── README.md                       # Project description
+│   ├── config/                           # Centralized configuration & presets
+│   │   ├── config.py                     # Pydantic-based config management
+│   │   ├── logging.yaml                  # Logging configuration
+│   │   └── presets.py                    # Plotting & model presets
+│   ├── data/                       
+│   │   ├── data_loader.py                # Kaggle downloader & local loader
+│   │   ├── data_cleaner.py               # Missing data, outlier logic, physics adjustments
+│   │   ├── data_processor.py             # Feature builders, scaling pipeline, splits
+│   │   └── data_handler.py               # High-level pipeline wrapper (load → clean → process)
+│   │
+│   ├── plotter/                    
+│   │   ├── base_plotter.py               # Scientific plotting setup + LaTeX styles
+│   │   ├── neutrino_plotter.py           # Physics-aware plots (signal vs background, correlations)
+│   │   └── dimensionality_plotter.py     # PCA, t-SNE, embeddings
+│   ├── stats/
+│   │   └── statistical_analysis.py       # Statistical tests, effect sizes, corrections
+│   ├── styles/
+│   │   └── plot_style.py                 # Global Matplotlib/SciPlot styling
+│   └── utils/
+│       ├── logger.py                     # Global logger loader (YAML-driven)
+│       └── paths.py                      # Project-root resolution utilities
+├── tests/
+│   ├── conftest.py                       # Shared fixtures for all tests
+│   ├── integration/                      # Combined integration tests
+│   ├── unit/                             # Unit Tests for individual module parts
+│   ├── output/                           # Temporary files generated during testing
+│   ├── reports/                          # Coverage & diagnostics (HTML reports)
+│   └── test_smokes.py                    # Quick, fast-running smoke tests
+├── models/                               # Trained ML models, exports, metadata
+├── logs/                                 # Log files (if enabled in logging.yaml)
+├── output/                               # Generated files from running the module
+├── tmp/                                  # Temporary scripts & scratch files
+├── Makefile                              # Build, test, clean, format commands
+├── pyproject.toml                        # Dependency & build configuration
+├── setup.cfg                             # Linting/formatting settings
+├── LICENSE
+└── README.md                      
 ```
 
-## 🛠️ Installation
+## 🛠 Installation
 
-1. **Clone the repository**:
+```bash
+git clone https://github.com/mchadolias/miniboone-classification
+cd miniboone-classification
+```
 
-   ```bash
-   git clone https://github.com/mchadolias/miniboone-classification
-   cd miniboone-classification
-   ```
+### Kaggle setup
 
-2. **Set up Kaggle credentials**:
+```bash
+mkdir -p ~/.config/kaggle
+cp kaggle.json ~/.config/kaggle/
+chmod 600 ~/.config/kaggle/kaggle.json
+```
 
-   ```bash
-   mkdir -p ~/.config/kaggle
-   # Add your kaggle.json to ~/.config/kaggle/
-   chmod 600 ~/.config/kaggle/kaggle.json
-   ```
+### Install dependencies
 
-3. **Install dependencies**:
+```bash
+uv sync    # or: pip install -r requirements.txt
+```
 
-   ```bash
-   make requirements
-   ```
+---
 
-## 🎯 Usage
+## 🎯 Usage Example
+
+### Load → Clean → Process the dataset
 
 ```python
 from src.data.data_handler import MiniBooNEDataHandler
 
 handler = MiniBooNEDataHandler()
-handler.download()
-df = handler.load()
-df = handler.clean_data()
+
+# Run full pipeline
+df_clean, splits, pipeline = handler.run()
+
+X_train, y_train = splits["train"]
 ```
 
-## 🧪 Testing
+### Generate physics plots
+
+```python
+from src.plotter.neutrino_plotter import NeutrinoPlotter
+
+plotter = NeutrinoPlotter()
+plotter.plot_feature_separation(df_clean, features=["feature_1", "feature_5"])
+```
+
+### Dimensionality reduction
+
+```python
+from src.plotter.dimensionality_reduction_plotter import DimensionalityReductionPlotter
+
+dr = DimensionalityReductionPlotter()
+fig = dr.plot_tsne_embedding(df_clean)
+```
+
+---
+
+## 🧪 Testing Command Sheet
 
 ```bash
-# Run all tests
-make test
-
-# Run tests with coverage
-make test-cov
-
-# Run quick development tests
-make test-dev
-
-# Check code quality
-make lint
-
-# Format code
-make format
+make test            # full test suite
+make test-dev        # fast local tests
+make test-cov        # coverage
+make lint            # static analysis
+make format          # format with black/isort
 ```
 
-**Test Coverage**: Includes unit tests, integration tests, and mocked external API calls.
+---
 
-## 🔄 CI/CD
+## 📊 About the Data
 
-Automated testing on every commit via GitHub Actions:
+The MiniBooNE detector dataset contains:
 
-- Runs test suite with coverage
-- Checks code quality
-- Uploads coverage reports
-- Tests on multiple platforms
+- 50 reconstructed PMT & hit-structure features
+- ~93k muon-neutrino background events
+- ~36k electron-neutrino signal events
 
-## 🏗️ Development
+This project handles the common MiniBooNE preprocessing steps:
 
-```bash
-# Install dev dependencies
-uv sync --extra dev
+- Replace MiniBooNE’s sentinel missing value `-999`
+- Column-wise median imputation
+- Feature scaling and (optional) transforms
+- Train/val/test splitting with reproducible seeds
 
-# Run specific test groups
-make test-unit
-make test-integration
+---
 
-# Clean temporary files
-make clean
+## 📚 Roadmap
 
-# View coverage report
-make open-cov
-```
+- [x] Full data pipeline orchestration
+- [x] Physics-aware plotting module
+- [x] YAML logging system
+- [x] Advanced statistics module
+- [ ] ML training pipeline (XGBoost, tabular NN)
+- [ ] Feature importance + SHAP
+- [ ] MLflow experiment tracking
+- [ ] Hyperparameter search
+- [ ] Add real detector-inspired feature engineering
 
-## 📊 Data
-
-- **50 reconstructed detector features**
-- **Signal**: Electron neutrino events (~28%)
-- **Background**: Muon neutrino events
-- **Automated download** from Kaggle
-
-## ✅ TODO List
-
-- [x] Add detailed tests for the visualization utilities
-- [ ] Implement model training pipeline
-- [ ] Add XGBoost model with hyperparameter tuning
-- [ ] Create model evaluation and metrics
-- [ ] Add feature importance analysis
-- [ ] Add visualization utilities for results
-- [ ] Create comprehensive model tests
-- [ ] Add experiment tracking (MLflow/Weights & Biases)
-- [ ] Implement cross-validation strategies
-- [ ] Add feature importance analysis
+---
 
 ## 📝 License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE).
 
---------
-*Last Updated: 2025-11-28*
+## 📅 Last Updated
+
+*Date: 06/12/2025*
+
+## 👤 Author
+
+- Michalis Chadolias  
+- Email: mchadolias[@]gmail.com  
+- GitHub: [https://github.com/mchadolias](https://github.com/mchadolias)
