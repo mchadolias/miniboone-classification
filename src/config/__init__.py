@@ -1,4 +1,4 @@
-from .config import DataConfig, SaveConfig
+from .config import DataConfig, SaveConfig, MLConfig
 from .presets import (
     BOXPLOT_PRESETS,
     VIOLIN_PRESETS,
@@ -11,6 +11,7 @@ from .presets import (
 __all__ = [
     "DataConfig",
     "SaveConfig",
+    "MLConfig",
     "VIOLIN_PRESETS",
     "BOXPLOT_PRESETS",
     "ViolinPlotConfig",

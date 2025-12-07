@@ -6,9 +6,7 @@ build-backend = "hatchling.build"
 name = "miniboone-classification"
 version = "0.0.1"
 description = "Build and deploy a machine learning model to distinguish electron neutrinos (signal) from muon neutrinos (background), based on reconstructed detector event features."
-authors = [
-  { name = "Michael Chadolias", email = "mchadolias@gmail.com" },
-]
+authors = [{ name = "Michael Chadolias", email = "mchadolias@gmail.com" }]
 license = { file = "LICENSE" }
 readme = "README.md"
 classifiers = [
@@ -17,23 +15,42 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Physics",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
+
+# Core runtime dependencies (needed to run training / experiments)
 dependencies = [
     "numpy>=2.3.4",
+    "pandas>=2.3.3",
     "scikit-learn>=1.7.2",
     "joblib>=1.5.2",
     "xgboost>=3.1.1",
     "pydantic-settings>=2.12.0",
-    "pandas>=2.3.3",
     "kaggle>=1.7.4.5",
-    "autoflake>=2.3.1",
     "statsmodels>=0.14.6",
     "fastparquet>=2024.11.0",
+    "mlflow>=3.7.0",
+    "optuna>=4.6.0",
+    "click>=8.3.1",
 ]
+
 requires-python = ">=3.13"
 
 [project.optional-dependencies]
+viz = ["matplotlib>=3.10.7", "seaborn>=0.13.2", "scienceplots>=2.2.0"]
+
+notebook = ["jupyter>=1.0.0", "ipykernel>=6.0.0"]
+
+# Convenience "all" extra if you want everything at once
+all = [
+    "matplotlib>=3.10.7",
+    "seaborn>=0.13.2",
+    "scienceplots>=2.2.0",
+    "jupyter>=1.0.0",
+    "ipykernel>=6.0.0",
+]
+
+[dependency-groups]
 dev = [
     "black>=24.0.0",
     "flake8>=7.0.0",
@@ -42,31 +59,7 @@ dev = [
     "pytest-cov>=4.1.0",
     "pytest-html>=4.1.0",
     "pytest-logging>=2015.11.4",
-]
-
-viz = [
-    "matplotlib>=3.10.7",
-    "seaborn>=0.13.2",
-    "jupyter>=1.0.0",
-    "ipykernel>=6.0.0",
-    "scienceplots>=2.2.0",
-]
-
-all = [
-    "black>=24.0.0",
-    "flake8>=7.0.0",
-    "isort>=5.13.0",
-    "pytest>=8.0.0",
-    "pytest-cov>=4.1.0",
-    "pytest-html>=4.1.0",
-    "matplotlib>=3.10.7",
-    "seaborn>=0.13.2",
-    "jupyter>=1.0.0",
-    "ipykernel>=6.0.0",
-    "pandas>=2.3.3",
-    "kaggle>=1.7.4.5",
-    "pytest-logging>=2015.11.4",
-    "scienceplots>=2.2.0",
+    "autoflake>=2.3.1",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -99,17 +92,9 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = [
-    "--verbose",
-    "--strict-markers",
-    "--strict-config",
-]
+addopts = ["--verbose", "--strict-markers", "--strict-config"]
 
 [project.urls]
 Homepage = "https://github.com/mchadolias/miniboone-classification"
 Repository = "https://github.com/mchadolias/miniboone-classification"
 "Bug Reports" = "https://github.com/mchadolias/miniboone-classification/issues"
-
-[project.scripts]
-miniboone-train = "miniboone-classification.cli:train"
-miniboone-predict = "miniboone-classification.cli:predict"

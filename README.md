@@ -89,9 +89,8 @@ miniboone-classification/
 │   ├── output/                           # Temporary files generated during testing
 │   ├── reports/                          # Coverage & diagnostics (HTML reports)
 │   └── test_smokes.py                    # Quick, fast-running smoke tests
-├── models/                               # Trained ML models, exports, metadata
 ├── logs/                                 # Log files (if enabled in logging.yaml)
-├── output/                               # Generated files from running the module
+├── mlruns/                               # MLflow folder housing model registry and summaries
 ├── tmp/                                  # Temporary scripts & scratch files
 ├── Makefile                              # Build, test, clean, format commands
 ├── pyproject.toml                        # Dependency & build configuration
