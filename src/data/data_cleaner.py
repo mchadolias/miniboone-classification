@@ -8,11 +8,11 @@ Handles the specific challenges of the MiniBooNE dataset:
 - Unknown, but physical meaning of features (particle detection measurements)
 """
 
+import logging
 from typing import Dict
 
 import numpy as np
 import pandas as pd
-import logging
 
 
 class DataCleaner:

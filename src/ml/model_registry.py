@@ -1,7 +1,8 @@
-import json
-import joblib
-from pathlib import Path
 from datetime import datetime
+import json
+from pathlib import Path
+
+import joblib
 
 
 def save_model(model, config: dict, metrics: dict, save_dir: Path = Path("models")):

@@ -1,13 +1,13 @@
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+import logging
+from typing import Any, Dict, Optional
 
 import numpy as np
 import optuna
-from sklearn.model_selection import cross_val_score
 from sklearn.base import BaseEstimator
+from sklearn.model_selection import cross_val_score
 
 from src.ml.model_factory import create_model
-import logging
 
 
 @dataclass

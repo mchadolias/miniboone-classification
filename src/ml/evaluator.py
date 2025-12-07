@@ -1,8 +1,8 @@
 from sklearn.metrics import (
-    roc_auc_score,
-    f1_score,
-    confusion_matrix,
     classification_report,
+    confusion_matrix,
+    f1_score,
+    roc_auc_score,
 )
 
 

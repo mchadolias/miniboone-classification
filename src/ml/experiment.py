@@ -1,9 +1,11 @@
+import logging
+
 import mlflow
 import mlflow.sklearn
 import pandas as pd
-import logging
-from src.ml.trainer import Trainer
+
 from src.ml.evaluator import evaluate_model
+from src.ml.trainer import Trainer
 
 
 class Experiment:

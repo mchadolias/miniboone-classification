@@ -1,4 +1,4 @@
-from .config import DataConfig, SaveConfig, MLConfig
+from .config import DataConfig, MLConfig, SaveConfig
 from .presets import (
     BOXPLOT_PRESETS,
     VIOLIN_PRESETS,

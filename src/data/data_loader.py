@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
+import logging
 import os
 import zipfile
-import logging
+
 import pandas as pd
 
 from src.config.config import DataConfig
