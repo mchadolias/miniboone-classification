@@ -12,10 +12,7 @@ from typing import Dict
 
 import numpy as np
 import pandas as pd
-
-from src.utils.logger import get_global_logger
-
-logger = get_global_logger(__name__)
+import logging
 
 
 class DataCleaner:
@@ -35,12 +32,13 @@ class DataCleaner:
         Parameters for any transformations applied to features.
     """
 
-    def __init__(self, config=None):
+    def __init__(self, config=None, logger=None):
         self.config = config or {}
         self.target_col: str = "signal"
         self.cleaning_stats = {}
         self.outlier_thresholds = {}
         self.transformation_params = {}
+        self.logger = logger or logging.getLogger(__name__)
 
     def _handle_duplicated_events(self, df: pd.DataFrame) -> pd.DataFrame:
         original_size = len(df)
@@ -48,7 +46,7 @@ class DataCleaner:
 
         if len(df_no_dupes) < original_size:
             n_removed = original_size - len(df_no_dupes)
-            logger.info(f"Removed {n_removed} duplicated events from dataset.")
+            self.logger.info(f"Removed {n_removed} duplicated events from dataset.")
 
         return df_no_dupes  # Returns cleaned DataFrame
 
@@ -73,21 +71,21 @@ class DataCleaner:
         sentinel_mask = df_clean == -999
         sentinel_count = sentinel_mask.sum().sum()
         if sentinel_count > 0:
-            logger.info(
+            self.logger.info(
                 f"Detected {int(sentinel_count)} sentinel (-999) entries; replacing with NaN."
             )
             df_clean.replace(-999, np.nan, inplace=True)
         else:
-            logger.debug("No sentinel (-999) placeholders detected.")
+            self.logger.debug("No sentinel (-999) placeholders detected.")
 
         missing_summary = df_clean.isnull().sum()
         total_missing = missing_summary.sum()
 
         if total_missing == 0:
-            logger.info("No missing values detected — returning original DataFrame.")
+            self.logger.info("No missing values detected — returning original DataFrame.")
             return df_clean
 
-        logger.info(
+        self.logger.info(
             f"Detected {int(total_missing)} missing entries across "
             f"{(missing_summary > 0).sum()} columns."
         )
@@ -104,23 +102,25 @@ class DataCleaner:
                 if np.isnan(median_val):
                     # Entire column missing — use fallback global median
                     fallback_val = global_median if not np.isnan(global_median) else 0.0
-                    logger.warning(
+                    self.logger.warning(
                         f"Column '{col}' entirely missing; filling with fallback value {fallback_val:.4f}."
                     )
                     median_val = fallback_val
                 df_clean[col] = df_clean[col].fillna(median_val)
-                logger.debug(f"Filled {n_missing} NaNs in '{col}' with median ({median_val:.4f}).")
+                self.logger.debug(
+                    f"Filled {n_missing} NaNs in '{col}' with median ({median_val:.4f})."
+                )
             else:
-                logger.warning(
+                self.logger.warning(
                     f"Column '{col}' is non-numeric and contains {n_missing} missing values. "
                     "Leaving as-is. Consider manual review."
                 )
 
         remaining = df_clean.isnull().sum().sum()
         if remaining > 0:
-            logger.warning(f"{int(remaining)} missing values remain after imputation.")
+            self.logger.warning(f"{int(remaining)} missing values remain after imputation.")
         else:
-            logger.info("All missing values successfully imputed with column medians.")
+            self.logger.info("All missing values successfully imputed with column medians.")
 
         return df_clean
 
@@ -189,7 +189,8 @@ class DataCleaner:
             positive_data = data[data > 0]
             if len(positive_data) > 1:
                 pos_range = positive_data.max() / positive_data.min()
-                if pos_range > 1000 or abs(data.skew()) > 3:
+                skewness = float(data.skew())
+                if pos_range > 1000 or abs(skewness) > 3:
                     return "log"
 
         # Case 2: Mixed negative and positive values
@@ -199,13 +200,13 @@ class DataCleaner:
                 return "symlog"
             elif dynamic_range > 1e4:  # Large dynamic range
                 return "asinh"  # Alternative: inverse hyperbolic sine
-
         # Case 3: Only negative values (less common)
         elif has_negatives and not has_positives:
             negative_data = data[data < 0]
             if len(negative_data) > 1:
                 neg_range = abs(negative_data.min() / negative_data.max())
-                if neg_range > 1000 or abs(data.skew()) > 3:
+                skewness = float(data.skew())
+                if neg_range > 1000 or abs(skewness) > 3:
                     return "symlog"
 
         return "linear"
@@ -229,12 +230,12 @@ class DataCleaner:
             scale_type = rec["recommended_scale"]
             scale_counts[scale_type] = scale_counts.get(scale_type, 0) + 1
 
-        logger.info("Feature Scaling Recommendations Summary:")
+        self.logger.info("Feature Scaling Recommendations Summary:")
         for scale_type, count in scale_counts.items():
             features = [
                 f for f, rec in recommendations.items() if rec["recommended_scale"] == scale_type
             ]
-            logger.info(f" - {scale_type}: {count} features")
+            self.logger.info(f" - {scale_type}: {count} features")
 
             # Show examples of each type
             if features:
@@ -243,4 +244,6 @@ class DataCleaner:
                     f"{recommendations[f]['min']:.1e} to {recommendations[f]['max']:.1e}"
                     for f in examples
                 ]
-                logger.info(f"   Examples: {', '.join(examples)} with ranges {', '.join(ranges)}")
+                self.logger.info(
+                    f"   Examples: {', '.join(examples)} with ranges {', '.join(ranges)}"
+                )

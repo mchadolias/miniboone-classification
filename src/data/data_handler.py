@@ -45,14 +45,12 @@ from typing import Any, Dict, Mapping, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+import logging
 
 from src.config.config import DataConfig
 from src.data.data_cleaner import DataCleaner
 from src.data.data_loader import DataDownloader, DataLoader, KaggleDownloader
 from src.data.data_processor import DataProcessor
-from src.utils.logger import get_global_logger
-
-logger = get_global_logger(__name__)
 
 
 class MiniBooNEDataHandler:
@@ -124,11 +122,14 @@ class MiniBooNEDataHandler:
         # Scientific lineage / provenance metadata
         self.lineage: Dict[str, Any] = {}
 
+        # Setup logging
+        self.logger = logging.getLogger(__name__)
+
         # Ensure base directories exist
         os.makedirs(getattr(self.config, "data_dir", "data"), exist_ok=True)
         os.makedirs(getattr(self.config, "cache_dir", "data/processed"), exist_ok=True)
 
-        logger.info("MiniBooNEDataHandler initialized.")
+        self.logger.info("MiniBooNEDataHandler initialized.")
 
     # -------------------------------------------------------------------------
     # DATA DOWNLOAD / LOAD
@@ -146,7 +147,7 @@ class MiniBooNEDataHandler:
         path = self.downloader.download(data_dir)
         self.lineage["download_path"] = path
         self.lineage["download_timestamp"] = datetime.now().isoformat()
-        logger.info("Dataset downloaded (or confirmed present) at %s", path)
+        self.logger.info("Dataset downloaded (or confirmed present) at %s", path)
         return path
 
     def get_data(self, force_download: bool = False) -> pd.DataFrame:
@@ -165,10 +166,10 @@ class MiniBooNEDataHandler:
         data_file = os.path.join(data_dir, "MiniBooNE_PID.csv")
 
         if force_download or not os.path.exists(data_file):
-            logger.info("Data file missing or forced re-download requested.")
+            self.logger.info("Data file missing or forced re-download requested.")
             data_file = self.download()
 
-        logger.info("Loading dataset from %s", data_file)
+        self.logger.info("Loading MiniBooNE Dataset")
         self.df = self.loader.load(data_file)
 
         self.lineage["data_path"] = data_file
@@ -193,7 +194,7 @@ class MiniBooNEDataHandler:
         if not os.path.exists(data_file):
             raise FileNotFoundError(f"Data file not found at {data_file}")
 
-        logger.info("Loading dataset directly from %s", data_file)
+        self.logger.info("Loading dataset directly from %s", data_file)
         self.df = self.loader.load(data_file)
 
         self.lineage["data_path"] = data_file
@@ -217,7 +218,7 @@ class MiniBooNEDataHandler:
         if self.df is None:
             raise ValueError("Data not loaded. Call get_data() or load() first.")
 
-        logger.info("Starting data cleaning...")
+        self.logger.info("Starting data cleaning...")
         self.df = self.cleaner.clean(self.df)
 
         self.lineage["clean_timestamp"] = datetime.now().isoformat()
@@ -225,7 +226,7 @@ class MiniBooNEDataHandler:
             "Duplicates removed, NaNs handled, -999 replaced (see DataCleaner)"
         )
 
-        logger.info("Data cleaning complete: shape=%s", self.df.shape)
+        self.logger.info("Data cleaning complete: shape=%s", self.df.shape)
         return self.df
 
     # -------------------------------------------------------------------------
@@ -263,7 +264,7 @@ class MiniBooNEDataHandler:
         X, _ = self.processor.prepare_features(df)
         X_proc = self.processor.run_pipeline(X)
 
-        logger.info("Preprocessing applied: shape=%s", X_proc.shape)
+        self.logger.info("Preprocessing applied: shape=%s", X_proc.shape)
         return X_proc.to_numpy() if to_numpy else X_proc
 
     def process(
@@ -294,9 +295,10 @@ class MiniBooNEDataHandler:
             raise ValueError("Data not loaded. Call get_data() or load() first.")
 
         if clean:
+            self.logger.info("Cleaning data before processing...")
             self.clean_data()
 
-        logger.info("Running DataProcessor pipeline...")
+        self.logger.info("Running DataProcessor pipeline...")
         X_train_df, X_test_df, y_train, y_test = self.processor.process(self.df, to_numpy=False)
         X_train_np, X_test_np = X_train_df.to_numpy(), X_test_df.to_numpy()
 
@@ -318,7 +320,7 @@ class MiniBooNEDataHandler:
 
         self.lineage["process_timestamp"] = datetime.now().isoformat()
 
-        logger.info(
+        self.logger.info(
             "Processing complete. Train: X=%s, Test: X=%s",
             X_train_df.shape,
             X_test_df.shape,
@@ -459,7 +461,7 @@ class MiniBooNEDataHandler:
             y_path = base_dir / f"y_{split_name}.csv"
             X_df.to_csv(X_path, index=False)
             y.to_csv(y_path, index=False)
-            logger.info("Saved processed split '%s' to %s and %s", split_name, X_path, y_path)
+            self.logger.info("Saved processed split '%s' to %s and %s", split_name, X_path, y_path)
 
     # -------------------------------------------------------------------------
     # LINEAGE / SUMMARY
@@ -487,7 +489,7 @@ class MiniBooNEDataHandler:
         with open(lineage_path, "w") as f:
             json.dump(self.lineage, f, indent=2, default=str)
 
-        logger.info("Lineage exported to %s", lineage_path)
+        self.logger.info("Lineage exported to %s", lineage_path)
         return lineage_path
 
     @staticmethod
@@ -518,21 +520,21 @@ class MiniBooNEDataHandler:
         a machine-readable API (use get_data_summary/get_split_shapes instead).
         """
         if self.df is None:
-            logger.warning("No dataset loaded.")
+            self.logger.warning("No dataset loaded.")
             return
 
-        logger.info("Dataset shape: %s", self.df.shape)
+        self.logger.info("Dataset shape: %s", self.df.shape)
         target_col = getattr(self.config, "target_col", "signal")
-        logger.info("Class distribution:\n%s", self.df[target_col].value_counts())
+        self.logger.info("Class distribution:\n%s", self.df[target_col].value_counts())
 
         if self.splits_df:
             for name, (X, y) in self.splits_df.items():
-                logger.info("Split '%s': X=%s, y=%s", name, X.shape, y.shape)
+                self.logger.info("Split '%s': X=%s, y=%s", name, X.shape, y.shape)
 
         if self.lineage:
-            logger.info("Lineage metadata:")
+            self.logger.info("Lineage metadata:")
             for key, value in self.lineage.items():
-                logger.info("  %s: %s", key, value)
+                self.logger.info("  %s: %s", key, value)
 
     def __repr__(self) -> str:
         n_rows = len(self.df) if self.df is not None else 0

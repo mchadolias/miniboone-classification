@@ -1,13 +1,12 @@
 from abc import ABC, abstractmethod
 import os
 import zipfile
-
+import logging
 import pandas as pd
 
 from src.config.config import DataConfig
-from src.utils.logger import get_global_logger
 
-logger = get_global_logger(__name__)
+logger = logging.getLogger(__name__)
 
 # Default column names for the 50 MiniBooNE features
 CUSTOM_COLUMN_NAMES = [f"feature_{i}" for i in range(50)]
@@ -231,7 +230,7 @@ class DataLoader:
             self.logger.error(f"Data file not found: {data_file}")
             raise FileNotFoundError(f"Data file not found: {data_file}")
 
-        self.logger.info(f"Loading MiniBooNE data from {data_file}...")
+        self.logger.info(f"Loading dataset: {data_file}...")
         df = pd.read_csv(data_file)
 
         # Determine expected number of feature columns (default 50)

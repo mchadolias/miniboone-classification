@@ -17,6 +17,7 @@ from pathlib import Path
 import time
 from typing import Dict, List, Optional, Tuple, Union
 
+import logging
 import joblib
 import numpy as np
 import pandas as pd
@@ -26,9 +27,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import RobustScaler, StandardScaler
 
 from src.config.config import DataConfig
-from src.utils.logger import get_global_logger
-
-logger = get_global_logger(__name__)
 
 
 class DataProcessor:
@@ -69,6 +67,7 @@ class DataProcessor:
 
         self.cache_dir = Path(config.cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.logger = logging.getLogger(__name__)
 
     # ======================================================================
     # MAIN ENTRY POINT
@@ -114,14 +113,14 @@ class DataProcessor:
               pd.Series]
             X_train, X_test, y_train, y_test
         """
-        logger.info("Starting data processing pipeline...")
+        self.logger.info("Starting data processing pipeline...")
         t0 = time.time()
 
         cache_key = self._get_cache_key(df)
         cache_paths = self._get_cache_paths(cache_key)
 
         if self.config.use_cache and self._is_cache_valid(cache_paths):
-            logger.info("Loading processed data from cache...")
+            self.logger.info("Loading processed data from cache...")
             X_train, X_test, y_train, y_test = self._load_cache(cache_paths)
         else:
             # Fresh processing
@@ -133,13 +132,13 @@ class DataProcessor:
 
             X_train, X_test, y_train, y_test = self.split_data(X_processed, y)
             self.save_to_cache(cache_paths, X_train, X_test, y_train, y_test)
-            logger.info(f"Processed data cached under key: {cache_key[:8]}")
+            self.logger.info(f"Processed data cached under key: {cache_key[:8]}")
 
         if to_numpy:
             X_train = X_train.to_numpy() if isinstance(X_train, pd.DataFrame) else X_train
             X_test = X_test.to_numpy() if isinstance(X_test, pd.DataFrame) else X_test
 
-        logger.info("Processing complete in %.2fs", time.time() - t0)
+        self.logger.info("Processing complete in %.2fs", time.time() - t0)
         return X_train, X_test, y_train, y_test
 
     # ======================================================================
@@ -170,7 +169,7 @@ class DataProcessor:
 
         X = df.drop(columns=[target])
         y = df[target].astype(int)
-        logger.debug("Prepared features X%s and target y%s", X.shape, y.shape)
+        self.logger.debug("Prepared features X%s and target y%s", X.shape, y.shape)
         return X, y
 
     def run_pipeline(self, X: pd.DataFrame, fit: bool = True) -> pd.DataFrame:
@@ -211,7 +210,7 @@ class DataProcessor:
             ]
             self.pipeline = Pipeline(pipeline_steps)
 
-            logger.debug("Fitting pipeline with steps: %s", [n for n, _ in pipeline_steps])
+            self.logger.debug("Fitting pipeline with steps: %s", [n for n, _ in pipeline_steps])
             X_transformed = self.pipeline.fit_transform(X)
 
             # Store feature names after variance filter
@@ -222,7 +221,7 @@ class DataProcessor:
                 raise ValueError(
                     "Pipeline has not been fitted. Call run_pipeline(..., fit=True) or process() first."
                 )
-            logger.debug("Applying transform-only pipeline to X%s", X.shape)
+            self.logger.debug("Applying transform-only pipeline to X%s", X.shape)
             X_transformed = self.pipeline.transform(X)
 
             # If feature_names_ is missing for some reason, fall back gracefully
@@ -231,7 +230,7 @@ class DataProcessor:
                 self.feature_names_ = list(X.columns)
 
         X_processed = pd.DataFrame(X_transformed, columns=self.feature_names_, index=X.index)
-        logger.info("Preprocessing produced matrix of shape %s", X_processed.shape)
+        self.logger.info("Preprocessing produced matrix of shape %s", X_processed.shape)
         return X_processed
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
@@ -280,7 +279,7 @@ class DataProcessor:
         z_scores = np.abs((X - X.mean()) / X.std(ddof=0))
         X = X.copy()
         X["is_outlier"] = (z_scores > z_thresh).any(axis=1).astype(int)
-        logger.info("Flagged %d outliers (z > %.1f).", int(X["is_outlier"].sum()), z_thresh)
+        self.logger.info("Flagged %d outliers (z > %.1f).", int(X["is_outlier"].sum()), z_thresh)
         return X
 
     def split_data(
@@ -308,7 +307,7 @@ class DataProcessor:
             random_state=self.config.random_state,
             stratify=y,
         )
-        logger.info(
+        self.logger.info(
             "Data split into train=%s and test=%s",
             X_train.shape,
             X_test.shape,
@@ -344,7 +343,7 @@ class DataProcessor:
 
         path = Path(self.config.cache_dir) / filename
         joblib.dump(self.pipeline, path)
-        logger.info("Preprocessing pipeline exported to %s", path)
+        self.logger.info("Preprocessing pipeline exported to %s", path)
         return path
 
     def load_pipeline(self, filename: str = "preprocessing_pipeline.joblib") -> Optional[Pipeline]:
@@ -371,7 +370,7 @@ class DataProcessor:
             raise FileNotFoundError(f"Pipeline file not found at {path}")
 
         self.pipeline = joblib.load(path)
-        logger.info("Preprocessing pipeline loaded from %s", path)
+        self.logger.info("Preprocessing pipeline loaded from %s", path)
         return self.pipeline
 
     # ======================================================================
@@ -408,7 +407,7 @@ class DataProcessor:
         """
         valid = all(Path(p).exists() for p in paths.values())
         if not valid:
-            logger.debug("Cache invalid or incomplete — will recompute.")
+            self.logger.debug("Cache invalid or incomplete — will recompute.")
         return valid
 
     def save_to_cache(
@@ -435,7 +434,7 @@ class DataProcessor:
         with open(paths["meta"], "w") as f:
             json.dump(metadata, f, indent=2, default=str)
 
-        logger.debug("Cache metadata saved to %s", paths["meta"])
+        self.logger.debug("Cache metadata saved to %s", paths["meta"])
 
     def _load_cache(self, paths: Dict[str, Path]):
         """
@@ -450,5 +449,5 @@ class DataProcessor:
         X_test = pd.read_parquet(paths["X_test"])
         y_train = pd.read_parquet(paths["y_train"])["target"]
         y_test = pd.read_parquet(paths["y_test"])["target"]
-        logger.info("Loaded cached splits: train=%s, test=%s", X_train.shape, X_test.shape)
+        self.logger.info("Loaded cached splits: train=%s, test=%s", X_train.shape, X_test.shape)
         return X_train, X_test, y_train, y_test
